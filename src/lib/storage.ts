@@ -123,8 +123,15 @@ const defaultMTBs: MTB[] = [
   },
 ];
 
+// Pre-seeded test accounts for development
+const defaultUsers: User[] = [
+  { id: 'user1', name: 'Test User', email: 'test@test.com', phone: '1234567890', password: 'test123', verified: true },
+  { id: 'user2', name: 'Demo User', email: 'demo@demo.com', phone: '0987654321', password: 'demo123', verified: true },
+  { id: 'user3', name: 'Admin User', email: 'admin@admin.com', phone: '1111111111', password: 'admin123', verified: true },
+];
+
 const getDefaultState = (): AppState => ({
-  users: [],
+  users: defaultUsers,
   loggedInUser: null,
   currentPatient: null,
   uploadedFiles: [],
