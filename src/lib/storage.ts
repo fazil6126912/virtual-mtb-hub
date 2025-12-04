@@ -6,6 +6,7 @@ export interface User {
   phone: string;
   password: string;
   verified: boolean;
+  profilePicture?: string; // Base64 or data URL
 }
 
 export interface PatientData {
@@ -74,6 +75,8 @@ export interface AppState {
   experts: Expert[];
   otpEmail: string | null;
   otp: string | null;
+  emailVerificationOtp: string | null;
+  emailVerificationPending: string | null; // New email awaiting verification
 }
 
 const STORAGE_KEY = 'vmtb_app_state';
@@ -141,6 +144,8 @@ const getDefaultState = (): AppState => ({
   experts: defaultExperts,
   otpEmail: null,
   otp: null,
+  emailVerificationOtp: null,
+  emailVerificationPending: null,
 });
 
 export const loadState = (): AppState => {

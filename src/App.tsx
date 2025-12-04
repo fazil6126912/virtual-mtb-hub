@@ -10,6 +10,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import OTP from "./pages/OTP";
+import VerifyEmailOTP from "./pages/VerifyEmailOTP";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
 import Upload from "./pages/Upload";
@@ -54,6 +55,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
       <Route path="/signup" element={<AuthRoute><Signup /></AuthRoute>} />
       <Route path="/otp" element={<OTP />} />
+      <Route path="/verify-email-otp" element={<ProtectedRoute><VerifyEmailOTP /></ProtectedRoute>} />
       <Route path="/forgot-password" element={<AuthRoute><ForgotPassword /></AuthRoute>} />
 
       {/* Protected Routes */}

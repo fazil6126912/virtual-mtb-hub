@@ -19,7 +19,7 @@ import EditProfileModal from './EditProfileModal';
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, logout, updateUser } = useApp();
+  const { state, logout, updateUser, initializeEmailChange } = useApp();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname.startsWith(path);
@@ -32,6 +32,13 @@ const Header = () => {
   const handleSaveProfile = (updates: Partial<typeof state.loggedInUser>) => {
     if (state.loggedInUser && updateUser) {
       updateUser(updates);
+    }
+  };
+
+  const handleEmailChangeInitiate = (newEmail: string) => {
+    if (initializeEmailChange) {
+      initializeEmailChange(newEmail);
+      navigate('/verify-email-otp');
     }
   };
 
@@ -72,11 +79,21 @@ const Header = () => {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center hover:from-primary/30 hover:to-primary/50 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-                      <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-                      <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
-                    </div>
+                  <button className="w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                    {state.loggedInUser?.profilePicture ? (
+                      <img
+                        src={state.loggedInUser.profilePicture}
+                        alt={state.loggedInUser.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
+                          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
+                          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
+                        </div>
+                      </div>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
@@ -109,6 +126,7 @@ const Header = () => {
           onOpenChange={setEditProfileOpen}
           user={state.loggedInUser}
           onSave={handleSaveProfile}
+          onEmailChangeInitiate={handleEmailChangeInitiate}
         />
       )}
     </>

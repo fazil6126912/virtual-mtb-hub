@@ -18,6 +18,8 @@ interface AppContextType {
   logout: () => void;
   verifyOTP: (otp: string) => boolean;
   setOTPEmail: (email: string) => void;
+  initializeEmailChange: (newEmail: string) => void;
+  verifyEmailOTP: (otp: string) => boolean;
   setCurrentPatient: (patient: PatientData) => void;
   addUploadedFile: (file: UploadedFile) => void;
   removeUploadedFile: (id: string) => void;
@@ -221,6 +223,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  // Initialize email change with OTP
+  const initializeEmailChange = (newEmail: string) => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log('Generated OTP for email verification:', otp); // For testing
+    
+    setState(prev => ({
+      ...prev,
+      emailVerificationOtp: otp,
+      emailVerificationPending: newEmail,
+    }));
+  };
+
+  // Verify email OTP and complete email change
+  const verifyEmailOTP = (inputOtp: string): boolean => {
+    if (
+      state.emailVerificationOtp === inputOtp &&
+      state.emailVerificationPending &&
+      state.loggedInUser
+    ) {
+      const updatedUser = {
+        ...state.loggedInUser,
+        email: state.emailVerificationPending,
+      };
+
+      setState(prev => ({
+        ...prev,
+        loggedInUser: updatedUser,
+        users: prev.users.map(u =>
+          u.id === updatedUser.id ? updatedUser : u
+        ),
+        emailVerificationOtp: null,
+        emailVerificationPending: null,
+      }));
+
+      return true;
+    }
+    return false;
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -230,6 +271,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         logout,
         verifyOTP,
         setOTPEmail,
+        initializeEmailChange,
+        verifyEmailOTP,
         setCurrentPatient,
         addUploadedFile,
         removeUploadedFile,

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
+import { Upload, X } from 'lucide-react';
 
 const Signup = () => {
   const [name, setName] = useState('');
@@ -9,9 +10,40 @@ const Signup = () => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [profilePicture, setProfilePicture] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { signup } = useApp();
   const navigate = useNavigate();
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      toast.error('Only PNG, JPG, and JPEG formats are supported');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setProfilePicture(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setProfilePicture(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +66,7 @@ const Signup = () => {
     setLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (signup({ name, email, phone, password })) {
+    if (signup({ name, email, phone, password, profilePicture })) {
       toast.success('Account created! Please verify your email.');
       navigate('/otp');
     } else {
@@ -113,6 +145,53 @@ const Signup = () => {
               onChange={e => setConfirmPassword(e.target.value)}
               className="vmtb-input"
               placeholder="Confirm your password"
+            />
+          </div>
+
+          {/* Profile Picture Upload */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Profile Picture</label>
+            {profilePicture ? (
+              <div className="flex items-center gap-3">
+                <img
+                  src={profilePicture}
+                  alt="Profile preview"
+                  className="w-16 h-16 rounded-full object-cover border border-border"
+                />
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="vmtb-btn-outline text-xs px-3 py-1"
+                  >
+                    Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveProfilePicture}
+                    className="vmtb-btn-outline text-xs px-3 py-1 text-destructive border-destructive"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full border border-dashed border-border rounded-lg p-6 hover:bg-muted transition-colors flex flex-col items-center justify-center gap-2"
+              >
+                <Upload className="w-6 h-6 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to upload profile picture</span>
+                <span className="text-xs text-muted-foreground">(PNG, JPG, JPEG)</span>
+              </button>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".png,.jpg,.jpeg"
+              onChange={handleProfilePictureChange}
+              className="hidden"
             />
           </div>
 
