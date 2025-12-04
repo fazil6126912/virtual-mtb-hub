@@ -116,27 +116,23 @@ const CaseSummary = () => {
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          {/* Action Buttons - All in one row */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center sm:justify-start mb-8">
             <button
               onClick={handleCreateReport}
-              className="vmtb-btn-outline flex items-center justify-center gap-2"
+              className="vmtb-btn-outline flex items-center justify-center gap-2 flex-1 sm:flex-none"
             >
               <FileText className="w-5 h-5" />
               Create Patient Report
             </button>
             <button
               onClick={handleCreatePresentation}
-              className="vmtb-btn-outline flex items-center justify-center gap-2"
+              className="vmtb-btn-outline flex items-center justify-center gap-2 flex-1 sm:flex-none"
             >
               <Presentation className="w-5 h-5" />
               Create Presentation
             </button>
-          </div>
-
-          {/* Finish Button */}
-          <div className="flex justify-end">
-            <button onClick={handleFinish} className="vmtb-btn-primary px-8">
+            <button onClick={handleFinish} className="vmtb-btn-primary px-8 flex items-center justify-center gap-2 flex-1 sm:flex-none">
               Create Case
             </button>
           </div>

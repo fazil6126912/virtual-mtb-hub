@@ -86,11 +86,13 @@ const ChatBox = ({ expert, caseId }: ChatBoxProps) => {
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
             className="flex-1 vmtb-input"
+            aria-label="Private message input"
           />
           <button
             onClick={handleSend}
             disabled={!message.trim()}
             className="w-12 h-12 bg-foreground text-background rounded-full flex items-center justify-center hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Send message"
           >
             <Send className="w-5 h-5" />
           </button>

@@ -7,7 +7,6 @@ import ZoomablePreview from '@/components/ZoomablePreview';
 import ExpertList from '@/components/ExpertList';
 import ChatBox from '@/components/ChatBox';
 import GroupChat from '@/components/GroupChat';
-import ResponsiveDrawer from '@/components/ResponsiveDrawer';
 import { useApp } from '@/contexts/AppContext';
 import { Expert, UploadedFile } from '@/lib/storage';
 
@@ -167,85 +166,54 @@ const CaseView = () => {
       case 'experts':
         // Group chat default, private chat when expert selected
         return (
-          <div className="flex h-[calc(100vh-12rem)] animate-fade-in">
-            {/* Experts List - Desktop */}
-            <div className="hidden md:block w-64 lg:w-72 border-r border-border overflow-y-auto hide-scrollbar">
-              <div className="p-4">
-                {/* Chat mode toggle */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={handleSwitchToGroup}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'group' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Switch to Group Chat"
-                  >
-                    Group Chat
-                  </button>
-                  <button
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'private' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Private Chat mode"
-                  >
-                    Private
-                  </button>
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-10rem)]">
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex gap-6 flex-1 min-h-0">
+                {/* Experts List - Left Column */}
+                <div className="w-64 lg:w-72 border-r border-border overflow-y-auto hide-scrollbar pr-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-foreground">Experts</h3>
+                    <button
+                      onClick={handleSwitchToGroup}
+                      className={`px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${
+                        chatMode === 'group' ? 'bg-vmtb-green text-white' : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
+                      }`}
+                      aria-label="Group chat"
+                    >
+                      Group Chat
+                    </button>
+                  </div>
+                  <ExpertList
+                    experts={state.experts}
+                    selectedExpert={selectedExpert}
+                    onSelectExpert={handleSelectExpert}
+                  />
                 </div>
-                <ExpertList
-                  experts={state.experts}
-                  selectedExpert={selectedExpert}
-                  onSelectExpert={handleSelectExpert}
-                />
-                {/* Disclaimer for non-owners */}
-                <p className="text-xs text-muted-foreground mt-4 italic">
-                  If you would like to add an expert to this MTB, please contact the case originator who created the MTB.
+
+                {/* Chat Area - Right Column */}
+                <div className="flex-1 min-w-0">
+                  {chatMode === 'group' ? (
+                    <GroupChat
+                      caseId={caseData.id}
+                      messages={groupMessages}
+                      onSendMessage={handleSendGroupMessage}
+                    />
+                  ) : selectedExpert ? (
+                    <ChatBox expert={selectedExpert} caseId={caseData.id} />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-muted-foreground">
+                      Select an expert to start a private chat
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Disclaimer at bottom */}
+              <div className="mt-4 pt-4 border-t border-border" role="note">
+                <p className="text-xs text-muted-foreground">
+                  If you would like to add experts to this case, please contact the case originator.
                 </p>
               </div>
-            </div>
-
-            {/* Mobile Drawer */}
-            <ResponsiveDrawer title="Experts">
-              <div className="p-4">
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={handleSwitchToGroup}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'group' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    Group
-                  </button>
-                  <button
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'private' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    Private
-                  </button>
-                </div>
-                <ExpertList
-                  experts={state.experts}
-                  selectedExpert={selectedExpert}
-                  onSelectExpert={handleSelectExpert}
-                />
-              </div>
-            </ResponsiveDrawer>
-
-            {/* Chat Area */}
-            <div className="flex-1">
-              {chatMode === 'group' ? (
-                <GroupChat
-                  caseId={caseData.id}
-                  messages={groupMessages}
-                  onSendMessage={handleSendGroupMessage}
-                />
-              ) : selectedExpert ? (
-                <ChatBox expert={selectedExpert} caseId={caseData.id} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  Select an expert to start a private chat
-                </div>
-              )}
             </div>
           </div>
         );

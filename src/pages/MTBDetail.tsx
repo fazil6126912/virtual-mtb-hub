@@ -5,12 +5,8 @@ import Header from '@/components/Header';
 import TabBar from '@/components/TabBar';
 import CaseTable from '@/components/CaseTable';
 import ExpertList from '@/components/ExpertList';
-import GroupChat from '@/components/GroupChat';
-import ChatBox from '@/components/ChatBox';
-import ResponsiveDrawer from '@/components/ResponsiveDrawer';
 import AddExpertModal from '@/components/AddExpertModal';
 import { useApp } from '@/contexts/AppContext';
-import { Expert, generateId } from '@/lib/storage';
 
 const tabs = [
   { id: 'mycases', label: 'My Cases' },
@@ -28,10 +24,8 @@ const tabs = [
 const MTBDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state, sendGroupMessage } = useApp();
+  const { state } = useApp();
   const [activeTab, setActiveTab] = useState('mycases');
-  const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
-  const [chatMode, setChatMode] = useState<'group' | 'private'>('group');
   const [showAddExpert, setShowAddExpert] = useState(false);
 
   const mtb = state.mtbs.find(m => m.id === id);
@@ -51,24 +45,6 @@ const MTBDetail = () => {
   // Get experts for this MTB
   const mtbExperts = state.experts.filter(e => mtb.experts.includes(e.id));
   const displayExperts = mtbExperts.length > 0 ? mtbExperts : state.experts;
-
-  // Group chat for MTB
-  const groupChatKey = `mtb-${mtb.id}-group`;
-  const groupMessages = state.chats[groupChatKey] || [];
-
-  const handleSelectExpert = (expert: Expert) => {
-    setSelectedExpert(expert);
-    setChatMode('private');
-  };
-
-  const handleSwitchToGroup = () => {
-    setSelectedExpert(null);
-    setChatMode('group');
-  };
-
-  const handleSendGroupMessage = (content: string) => {
-    sendGroupMessage(`mtb-${mtb.id}`, content);
-  };
 
   const handleAddExpert = (name: string, email: string, specialty: string) => {
     // In a real app, this would send an invitation
@@ -94,122 +70,39 @@ const MTBDetail = () => {
 
       case 'experts':
         return (
-          <div className="flex h-[calc(100vh-12rem)] animate-fade-in">
-            {/* Experts List - Desktop */}
-            <div className="hidden md:block w-64 lg:w-72 border-r border-border overflow-y-auto hide-scrollbar">
-              <div className="p-4">
-                {/* Add Expert button for owners */}
-                {isOwner && (
-                  <button
-                    onClick={() => setShowAddExpert(true)}
-                    className="w-full vmtb-btn-primary flex items-center justify-center gap-2 mb-4"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Expert
-                  </button>
-                )}
-
-                {/* Chat mode toggle */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={handleSwitchToGroup}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'group' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Switch to Group Chat"
-                  >
-                    Group Chat
-                  </button>
-                  <button
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'private' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
-                    }`}
-                    aria-label="Private Chat mode"
-                  >
-                    Private
-                  </button>
-                </div>
-
-                <h3 className="text-sm font-medium text-foreground mb-3">Board Experts</h3>
-                <ExpertList
-                  experts={displayExperts}
-                  selectedExpert={selectedExpert}
-                  onSelectExpert={handleSelectExpert}
-                />
-
-                {/* Disclaimer based on ownership */}
-                <div className="mt-4 pt-4 border-t border-border">
-                  {isOwner ? (
-                    <p className="text-xs text-muted-foreground italic">
-                      As the MTB creator, you may add experts using the "Add Expert" button above.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground italic">
-                      If you would like to add an expert to this MTB, please contact the case originator who created the MTB.
-                    </p>
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-10rem)]">
+            <div className="flex-1 overflow-hidden">
+              <div className="h-full overflow-y-auto hide-scrollbar">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h3 className="text-sm font-medium text-foreground">Experts</h3>
+                  {/* Add Expert button for owners */}
+                  {isOwner && (
+                    <button
+                      onClick={() => setShowAddExpert(true)}
+                      className="px-2 py-1 vmtb-btn-primary flex items-center gap-1 text-xs whitespace-nowrap"
+                      aria-label="Add expert"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Expert
+                    </button>
                   )}
                 </div>
-              </div>
-            </div>
-
-            {/* Mobile Drawer */}
-            <ResponsiveDrawer title="Experts">
-              <div className="p-4">
-                {isOwner && (
-                  <button
-                    onClick={() => setShowAddExpert(true)}
-                    className="w-full vmtb-btn-primary flex items-center justify-center gap-2 mb-4"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Expert
-                  </button>
-                )}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={handleSwitchToGroup}
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'group' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    Group
-                  </button>
-                  <button
-                    className={`flex-1 px-3 py-2 text-sm rounded-lg transition-colors ${
-                      chatMode === 'private' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}
-                  >
-                    Private
-                  </button>
-                </div>
                 <ExpertList
                   experts={displayExperts}
-                  selectedExpert={selectedExpert}
-                  onSelectExpert={handleSelectExpert}
+                  selectedExpert={null}
+                  onSelectExpert={() => {}}
                 />
-                {!isOwner && (
-                  <p className="text-xs text-muted-foreground mt-4 italic">
-                    Contact the MTB creator to add experts.
-                  </p>
-                )}
               </div>
-            </ResponsiveDrawer>
-
-            {/* Chat Area */}
-            <div className="flex-1">
-              {chatMode === 'group' ? (
-                <GroupChat
-                  caseId={`mtb-${mtb.id}`}
-                  messages={groupMessages}
-                  onSendMessage={handleSendGroupMessage}
-                />
-              ) : selectedExpert ? (
-                <ChatBox expert={selectedExpert} caseId={`mtb-${mtb.id}`} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground">
-                  Select an expert to start a private chat
-                </div>
-              )}
             </div>
+
+            {/* Disclaimer for non-owners - Fixed at bottom */}
+            {!isOwner && (
+              <div className="mt-4 pt-4 border-t border-border" role="note">
+                <p className="text-xs text-muted-foreground">
+                  To add experts to this MTB, please contact the MTB creator.
+                </p>
+              </div>
+            )}
           </div>
         );
 

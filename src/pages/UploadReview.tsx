@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, Trash2, ArrowLeft } from 'lucide-react';
 import Header from '@/components/Header';
 import FileCard from '@/components/FileCard';
-import FileUploadDropzone from '@/components/FileUploadDropzone';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
 import { UploadedFile, generateMockExtractedData } from '@/lib/storage';
@@ -148,11 +147,6 @@ const UploadReview = () => {
                 />
               ))
             )}
-          </div>
-
-          {/* Dropzone - compact */}
-          <div className="border-t border-border pt-6">
-            <FileUploadDropzone onFilesAdded={handleFilesAdded} compact />
           </div>
         </div>
 
