@@ -1,34 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import Header from '@/components/Header';
-import PreviewPane from '@/components/PreviewPane';
+import ZoomablePreview from '@/components/ZoomablePreview';
 import { useApp } from '@/contexts/AppContext';
-import { toast } from 'sonner';
 
+/**
+ * FilePreview page with two-panel layout:
+ * - Left: Zoomable/pannable document preview
+ * - Right: Single large JSON textarea for extracted data
+ * 
+ * Edits are saved when navigating between files.
+ * Scrollbars hidden on preview pane.
+ */
 const FilePreview = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
   const { state, updateFileExtractedData } = useApp();
-  const [editedData, setEditedData] = useState<Record<string, string>>({});
+  const [jsonText, setJsonText] = useState('');
 
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
   const totalFiles = state.uploadedFiles.length;
   const isLastFile = currentIndex === totalFiles - 1;
+  const isFirstFile = currentIndex === 0;
 
+  // Convert extracted data to JSON string for editing
   useEffect(() => {
     if (currentFile?.extractedData) {
-      setEditedData(currentFile.extractedData);
+      setJsonText(JSON.stringify(currentFile.extractedData, null, 2));
+    } else {
+      setJsonText('{}');
     }
   }, [currentFile]);
 
-  const handleFieldChange = (key: string, value: string) => {
-    setEditedData(prev => ({ ...prev, [key]: value }));
-  };
-
   const saveCurrentFile = () => {
     if (currentFile) {
-      updateFileExtractedData(currentFile.id, editedData);
+      try {
+        const parsed = JSON.parse(jsonText);
+        updateFileExtractedData(currentFile.id, parsed);
+      } catch {
+        // If JSON is invalid, save as a single field
+        updateFileExtractedData(currentFile.id, { content: jsonText });
+      }
     }
   };
 
@@ -55,63 +69,69 @@ const FilePreview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-muted flex flex-col">
       <Header />
       
-      <main className="h-[calc(100vh-4rem)]">
-        {/* File Header */}
-        <div className="bg-background border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-foreground">{currentFile.name}</h2>
-          <p className="text-sm text-muted-foreground">
-            file {currentIndex + 1} out of {totalFiles}
-          </p>
+      {/* File Header */}
+      <div className="bg-background border-b border-border px-4 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{currentFile.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              file {currentIndex + 1} out of {totalFiles}
+            </p>
+          </div>
+          <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
+            {currentFile.fileCategory}
+          </span>
+        </div>
+      </div>
+
+      {/* Two Panel Layout - Full height minus header */}
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        {/* Left Panel - Original Document with zoom/pan */}
+        <div className="w-full md:w-1/2 h-[40vh] md:h-auto border-b md:border-b-0 md:border-r border-border p-4 overflow-hidden">
+          <div className="h-full rounded-lg overflow-hidden hide-scrollbar">
+            <ZoomablePreview file={currentFile} />
+          </div>
         </div>
 
-        {/* Two Panel Layout */}
-        <div className="flex h-[calc(100%-5rem)]">
-          {/* Left Panel - Original Document */}
-          <div className="w-1/2 border-r border-border p-6">
-            <div className="h-full">
-              <PreviewPane file={currentFile} />
-            </div>
+        {/* Right Panel - Extracted JSON */}
+        <div className="w-full md:w-1/2 flex flex-col p-4 overflow-hidden">
+          <div className="flex-shrink-0 mb-4">
+            <h3 className="text-lg font-semibold text-foreground">Digitized JSON</h3>
+            <p className="text-sm text-muted-foreground">
+              Review and edit the extracted information. Changes are saved when navigating.
+            </p>
           </div>
 
-          {/* Right Panel - Extracted Data */}
-          <div className="w-1/2 p-6 overflow-y-auto">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Extracted Data</h3>
-            <p className="text-sm text-muted-foreground mb-6">
-              Review and edit the extracted information from this document.
-            </p>
+          <textarea
+            value={jsonText}
+            onChange={e => setJsonText(e.target.value)}
+            className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[200px]"
+            placeholder="Extracted JSON data..."
+            spellCheck={false}
+          />
 
-            <div className="space-y-4">
-              {Object.entries(editedData).map(([key, value]) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    {key}
-                  </label>
-                  <textarea
-                    value={value}
-                    onChange={e => handleFieldChange(key, e.target.value)}
-                    className="vmtb-input min-h-[80px] resize-y"
-                    rows={2}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-8 pt-4 border-t border-border">
-              <button
-                onClick={handlePrevious}
-                disabled={currentIndex === 0}
-                className="vmtb-btn-outline disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button onClick={handleNext} className="vmtb-btn-primary">
-                {isLastFile ? 'Submit' : 'Next'}
-              </button>
-            </div>
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-4 pt-4 border-t border-border flex-shrink-0">
+            <button
+              onClick={handlePrevious}
+              disabled={isFirstFile}
+              className="vmtb-btn-outline flex items-center gap-2 disabled:opacity-50"
+              aria-label="Previous file"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Previous
+            </button>
+            <button 
+              onClick={handleNext} 
+              className="vmtb-btn-primary flex items-center gap-2"
+              aria-label={isLastFile ? 'Submit' : 'Next file'}
+            >
+              {isLastFile ? 'Submit' : 'Next'}
+              {!isLastFile && <ArrowRight className="w-4 h-4" />}
+            </button>
           </div>
         </div>
       </main>

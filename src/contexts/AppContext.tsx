@@ -25,7 +25,9 @@ interface AppContextType {
   updateFileExtractedData: (id: string, data: Record<string, string>) => void;
   createCase: (clinicalSummary?: string) => Case | null;
   sendMessage: (caseId: string, expertId: string, content: string) => void;
+  sendGroupMessage: (caseId: string, content: string) => void;
   clearUploadedFiles: () => void;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -184,6 +186,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setState(prev => ({ ...prev, uploadedFiles: [] }));
   };
 
+  // Send message to group chat (uses 'group' as expertId)
+  const sendGroupMessage = (caseId: string, content: string) => {
+    if (!state.loggedInUser) return;
+
+    const chatKey = `${caseId}-group`;
+    const message: ChatMessage = {
+      id: generateId(),
+      expertId: 'group',
+      caseId,
+      senderId: state.loggedInUser.id,
+      content,
+      timestamp: new Date().toISOString(),
+    };
+
+    setState(prev => ({
+      ...prev,
+      chats: {
+        ...prev.chats,
+        [chatKey]: [...(prev.chats[chatKey] || []), message],
+      },
+    }));
+  };
+
+  // Update current user profile
+  const updateUser = (updates: Partial<User>) => {
+    if (!state.loggedInUser) return;
+
+    const updatedUser = { ...state.loggedInUser, ...updates };
+    setState(prev => ({
+      ...prev,
+      loggedInUser: updatedUser,
+      users: prev.users.map(u => (u.id === updatedUser.id ? updatedUser : u)),
+    }));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -200,7 +237,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateFileExtractedData,
         createCase,
         sendMessage,
+        sendGroupMessage,
         clearUploadedFiles,
+        updateUser,
       }}
     >
       {children}

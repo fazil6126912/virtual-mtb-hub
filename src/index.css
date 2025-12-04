@@ -161,6 +161,31 @@
 }
 
 @layer utilities {
+  /* Full-width app container - removes centered constraints */
+  .app-container {
+    max-width: none;
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  @media (max-width: 640px) {
+    .app-container {
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+  }
+
+  /* Hide scrollbars but keep functionality */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out;
   }
