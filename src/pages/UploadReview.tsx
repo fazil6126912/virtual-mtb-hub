@@ -1,19 +1,69 @@
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { Upload, Trash2, ArrowLeft } from 'lucide-react';
 import Header from '@/components/Header';
 import FileCard from '@/components/FileCard';
 import FileUploadDropzone from '@/components/FileUploadDropzone';
+import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
 import { UploadedFile, generateMockExtractedData } from '@/lib/storage';
 import { toast } from 'sonner';
 
+/**
+ * UploadReview page with restructured layout:
+ * - Top row: Title + Upload File / Remove All buttons
+ * - File list with scroll
+ * - Dropzone below file list
+ * - Back/Next buttons outside card
+ */
 const UploadReview = () => {
   const navigate = useNavigate();
-  const { state, addUploadedFile, removeUploadedFile, updateFileCategory, updateFileExtractedData } = useApp();
+  const { state, addUploadedFile, removeUploadedFile, updateFileCategory, updateFileExtractedData, clearUploadedFiles } = useApp();
+  const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFilesAdded = (files: UploadedFile[]) => {
     files.forEach(file => addUploadedFile(file));
     toast.success(`${files.length} file(s) added`);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const acceptedTypes = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg', 'image/jpg'];
+    const validFiles: UploadedFile[] = [];
+
+    Array.from(files).forEach(file => {
+      if (acceptedTypes.includes(file.type)) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const uploadedFile: UploadedFile = {
+            id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            dataURL: reader.result as string,
+            fileCategory: 'Clinical Notes',
+          };
+          addUploadedFile(uploadedFile);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleRemoveAll = () => {
+    clearUploadedFiles();
+    setShowConfirmRemove(false);
+    toast.success('All files removed');
   };
 
   const handleNext = () => {
@@ -31,7 +81,7 @@ const UploadReview = () => {
     navigate('/upload/preview/0');
   };
 
-  const handleClose = () => {
+  const handleBack = () => {
     navigate('/upload');
   };
 
@@ -44,53 +94,99 @@ const UploadReview = () => {
     <div className="min-h-screen bg-muted">
       <Header />
       
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        {/* Close button */}
-        <div className="flex justify-end mb-4">
+      <main className="w-full px-4 py-8">
+        {/* Hidden file input for Upload File button */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".pdf,.txt,.png,.jpg,.jpeg"
+          onChange={handleFileInputChange}
+          className="hidden"
+        />
+
+        <div className="vmtb-card p-6 md:p-8 animate-fade-in max-h-[75vh] flex flex-col">
+          {/* Header row with title and action buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <h2 className="text-xl font-semibold text-foreground">
+              Uploaded Files ({state.uploadedFiles.length})
+            </h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleUploadClick}
+                className="vmtb-btn-primary flex items-center gap-2 px-4 py-2"
+                aria-label="Upload File"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload File</span>
+              </button>
+              <button
+                onClick={() => setShowConfirmRemove(true)}
+                disabled={state.uploadedFiles.length === 0}
+                className="vmtb-btn-outline flex items-center gap-2 px-4 py-2 text-destructive border-destructive hover:bg-destructive/10 disabled:opacity-50"
+                aria-label="Remove All"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Remove All</span>
+              </button>
+            </div>
+          </div>
+
+          {/* File List - scrollable */}
+          <div className="flex-1 overflow-y-auto space-y-3 mb-6 min-h-0">
+            {state.uploadedFiles.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No files uploaded yet. Use the button above or drag & drop below.
+              </div>
+            ) : (
+              state.uploadedFiles.map(file => (
+                <FileCard
+                  key={file.id}
+                  file={file}
+                  onCategoryChange={category => updateFileCategory(file.id, category)}
+                  onRemove={() => removeUploadedFile(file.id)}
+                />
+              ))
+            )}
+          </div>
+
+          {/* Dropzone - compact */}
+          <div className="border-t border-border pt-6">
+            <FileUploadDropzone onFilesAdded={handleFilesAdded} compact />
+          </div>
+        </div>
+
+        {/* Navigation buttons outside card */}
+        <div className="flex justify-between mt-6">
           <button
-            onClick={handleClose}
-            className="p-2 hover:bg-card rounded-full transition-colors"
+            onClick={handleBack}
+            className="vmtb-btn-outline flex items-center gap-2"
+            aria-label="Back"
           >
-            <X className="w-6 h-6 text-muted-foreground" />
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={state.uploadedFiles.length === 0}
+            className="vmtb-btn-primary px-8"
+            aria-label="Next"
+          >
+            Next
           </button>
         </div>
-
-        <div className="vmtb-card p-8 animate-fade-in">
-          <h2 className="text-xl font-semibold text-foreground mb-6">
-            Uploaded Files ({state.uploadedFiles.length})
-          </h2>
-
-          {/* File List */}
-          <div className="space-y-4 mb-8 max-h-96 overflow-y-auto">
-            {state.uploadedFiles.map(file => (
-              <FileCard
-                key={file.id}
-                file={file}
-                onCategoryChange={category => updateFileCategory(file.id, category)}
-                onRemove={() => removeUploadedFile(file.id)}
-              />
-            ))}
-          </div>
-
-          {/* Add More Files */}
-          {state.uploadedFiles.length > 0 && (
-            <div className="mb-8">
-              <FileUploadDropzone onFilesAdded={handleFilesAdded} />
-            </div>
-          )}
-
-          {/* Next Button */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleNext}
-              disabled={state.uploadedFiles.length === 0}
-              className="vmtb-btn-primary px-8"
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </main>
+
+      {/* Confirm Remove All Modal */}
+      <ConfirmModal
+        open={showConfirmRemove}
+        onOpenChange={setShowConfirmRemove}
+        title="Remove all uploaded files?"
+        description="This action cannot be undone. All files will be permanently deleted from this upload session."
+        confirmLabel="Remove All"
+        onConfirm={handleRemoveAll}
+        destructive
+      />
     </div>
   );
 };
