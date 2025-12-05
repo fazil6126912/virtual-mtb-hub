@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import TabBar from '@/components/TabBar';
 import MTBCard from '@/components/MTBCard';
+import CreateMTBModal from '@/components/CreateMTBModal';
 import { useApp } from '@/contexts/AppContext';
+import { Button } from '@/components/ui/button';
 
 const tabs = [
   { id: 'my', label: 'My MTBs' },
@@ -10,13 +13,29 @@ const tabs = [
 ];
 
 const MTBsList = () => {
-  const { state } = useApp();
+  const { state, createMTB, sendInvitations } = useApp();
   const [activeTab, setActiveTab] = useState('my');
+  const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const myMTBs = state.mtbs.filter(m => m.isOwner);
   const enrolledMTBs = state.mtbs.filter(m => !m.isOwner);
 
   const displayedMTBs = activeTab === 'my' ? myMTBs : enrolledMTBs;
+
+  const handleCreateMTB = (data: {
+    name: string;
+    dpImage: string | null;
+    expertEmails: string[];
+    caseIds: string[];
+  }) => {
+    if (createMTB) {
+      const newMTB = createMTB(data.name, data.dpImage, data.caseIds);
+      // Send invitations to expert emails
+      if (sendInvitations && newMTB) {
+        sendInvitations(newMTB.id, newMTB.name, data.expertEmails);
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-muted">
@@ -24,7 +43,17 @@ const MTBsList = () => {
       
       <div className="bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+          <div className="flex items-center justify-between">
+            <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+            <Button
+              onClick={() => setCreateModalOpen(true)}
+              size="sm"
+              className="rounded-full"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Create MTB
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -41,6 +70,13 @@ const MTBsList = () => {
           </div>
         )}
       </main>
+
+      {/* Create MTB Modal */}
+      <CreateMTBModal
+        open={createModalOpen}
+        onOpenChange={setCreateModalOpen}
+        onCreateMTB={handleCreateMTB}
+      />
     </div>
   );
 };
