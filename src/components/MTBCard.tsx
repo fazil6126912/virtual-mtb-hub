@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { MTB } from '@/lib/storage';
+import { useApp } from '@/contexts/AppContext';
 
 interface MTBCardProps {
   mtb: MTB;
@@ -7,6 +8,13 @@ interface MTBCardProps {
 
 const MTBCard = ({ mtb }: MTBCardProps) => {
   const navigate = useNavigate();
+  const { state } = useApp();
+
+  // Calculate actual expert count for this MTB
+  const expertCount = state.experts.filter(e => mtb.experts.includes(e.id)).length;
+  
+  // Calculate actual case count for this MTB
+  const caseCount = state.cases.filter(c => mtb.cases.includes(c.id)).length;
 
   return (
     <div
@@ -35,8 +43,8 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-border flex items-center justify-between text-sm">
-        <span className="text-foreground">{mtb.expertsCount} Experts</span>
-        <span className="text-foreground">{mtb.casesCount} Cases</span>
+        <span className="text-foreground">{expertCount} {expertCount === 1 ? 'Expert' : 'Experts'}</span>
+        <span className="text-foreground">{caseCount} {caseCount === 1 ? 'Case' : 'Cases'}</span>
       </div>
     </div>
   );

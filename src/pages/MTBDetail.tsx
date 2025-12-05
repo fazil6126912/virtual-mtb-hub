@@ -6,8 +6,10 @@ import TabBar from '@/components/TabBar';
 import CaseTable from '@/components/CaseTable';
 import ExpertList from '@/components/ExpertList';
 import AddExpertModal from '@/components/AddExpertModal';
+import AddCaseToMTBModal from '@/components/AddCaseToMTBModal';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
+import { Case } from '@/lib/storage';
 
 const tabs = [
   { id: 'mycases', label: 'My Cases' },
@@ -28,6 +30,7 @@ const MTBDetail = () => {
   const { state, removeExpertFromMTB, sendInvitations } = useApp();
   const [activeTab, setActiveTab] = useState('mycases');
   const [showAddExpert, setShowAddExpert] = useState(false);
+  const [showAddCase, setShowAddCase] = useState(false);
   const [expertToRemove, setExpertToRemove] = useState<string | null>(null);
   const [removeExpertModalOpen, setRemoveExpertModalOpen] = useState(false);
 
@@ -57,6 +60,13 @@ const MTBDetail = () => {
     console.log('Adding expert:', { name, email, specialty });
   };
 
+  const handleAddCases = (caseIds: string[]) => {
+    // In a real app, this would update the MTB with the new cases
+    // For now, this is a placeholder for future functionality
+    console.log('Adding cases to MTB:', caseIds);
+    // The cases are already in state, just log for now
+  };
+
   const handleRemoveExpertClick = (expertId: string) => {
     setExpertToRemove(expertId);
     setRemoveExpertModalOpen(true);
@@ -74,50 +84,69 @@ const MTBDetail = () => {
     switch (activeTab) {
       case 'mycases':
         return (
-          <div className="p-4 md:p-6 animate-fade-in">
-            <CaseTable 
-              cases={myCases} 
-              title="My Cases" 
-              basePath={`/mtbs/${id}/cases`}
-              showActions="all"
-            />
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
+            <div className="flex items-center justify-between gap-3 mb-6">
+              <h3 className="text-lg font-semibold text-foreground">My Cases</h3>
+              {isOwner && (
+                <button
+                  onClick={() => setShowAddCase(true)}
+                  className="px-3 py-1 vmtb-btn-primary flex items-center gap-1 text-sm whitespace-nowrap"
+                  aria-label="Add case to MTB"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Case
+                </button>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <CaseTable 
+                cases={myCases} 
+                title="My Cases"
+                basePath={`/mtbs/${id}/cases`}
+                showActions="all"
+              />
+            </div>
           </div>
         );
 
       case 'shared':
         return (
-          <div className="p-4 md:p-6 animate-fade-in">
-            <CaseTable 
-              cases={sharedCases} 
-              title="Shared Cases" 
-              basePath={`/mtbs/${id}/cases`}
-              showActions="view-only"
-            />
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-foreground">Shared Cases</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <CaseTable 
+                cases={sharedCases} 
+                title="Shared Cases"
+                basePath={`/mtbs/${id}/cases`}
+                showActions="view-only"
+                showPatientName={false}
+              />
+            </div>
           </div>
         );
 
       case 'experts':
         return (
-          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-10rem)]">
-            <div className="flex-1 overflow-hidden">
-              <div className="h-full overflow-y-auto hide-scrollbar">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <h3 className="text-sm font-medium text-foreground">Experts</h3>
-                  {/* Add Expert button for owners */}
-                  {isOwner && (
-                    <button
-                      onClick={() => setShowAddExpert(true)}
-                      className="px-2 py-1 vmtb-btn-primary flex items-center gap-1 text-xs whitespace-nowrap"
-                      aria-label="Add expert"
-                    >
-                      <Plus className="w-3 h-3" />
-                      Add Expert
-                    </button>
-                  )}
-                </div>
-                
-                {/* Expert list with remove option for owners */}
-                <div className="space-y-2">
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-200px)]">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              {/* Add Expert button for owners - no heading needed */}
+              {isOwner && (
+                <button
+                  onClick={() => setShowAddExpert(true)}
+                  className="px-2 py-1 vmtb-btn-primary flex items-center gap-1 text-xs whitespace-nowrap"
+                  aria-label="Add expert"
+                >
+                  <Plus className="w-3 h-3" />
+                  Add Expert
+                </button>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Expert list with remove option for owners */}
+              <div className="space-y-2">
                   {displayExperts.map(expert => (
                     <div 
                       key={expert.id}
@@ -151,7 +180,6 @@ const MTBDetail = () => {
                     </div>
                   ))}
                 </div>
-              </div>
             </div>
 
             {/* Disclaimer for non-owners - Fixed at bottom */}
@@ -171,10 +199,10 @@ const MTBDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-muted flex flex-col">
       <Header />
       
-      <div className="bg-background border-b border-border">
+      <div className="bg-background border-b border-border flex-shrink-0">
         <div className="w-full px-4">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
@@ -195,7 +223,7 @@ const MTBDetail = () => {
             </div>
             <button
               onClick={() => navigate('/mtbs')}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className="p-2 hover:bg-muted rounded-lg transition-colors flex-shrink-0"
             >
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </button>
@@ -203,7 +231,7 @@ const MTBDetail = () => {
         </div>
       </div>
 
-      <main className="w-full">
+      <main className="flex-1 overflow-hidden w-full">
         {renderTabContent()}
       </main>
 
@@ -212,6 +240,13 @@ const MTBDetail = () => {
         open={showAddExpert}
         onOpenChange={setShowAddExpert}
         onAdd={handleAddExpert}
+      />
+
+      {/* Add Case to MTB Modal */}
+      <AddCaseToMTBModal
+        open={showAddCase}
+        onOpenChange={setShowAddCase}
+        onAddCases={handleAddCases}
       />
 
       {/* Remove Expert Confirmation Modal */}

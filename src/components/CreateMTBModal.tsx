@@ -4,7 +4,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useApp } from '@/contexts/AppContext';
 
 interface CreateMTBModalProps {
@@ -33,12 +32,49 @@ const CreateMTBModal = ({ open, onOpenChange, onCreateMTB }: CreateMTBModalProps
   const [emailInput, setEmailInput] = useState('');
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
   const [selectedCases, setSelectedCases] = useState<string[]>([]);
+  const [caseInput, setCaseInput] = useState('');
+  const [caseSuggestions, setCaseSuggestions] = useState<typeof state.cases>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get all user emails for suggestions
-  const allUserEmails = state.users
-    .filter(u => u.id !== state.loggedInUser?.id)
-    .map(u => u.email);
+  // Get all user cases for suggestions
+  const userCases = state.cases.filter(c => c.ownerId === state.loggedInUser?.id);
+
+  const handleCaseInputChange = (value: string) => {
+    setCaseInput(value);
+    if (value.trim()) {
+      const suggestions = userCases.filter(
+        caseItem =>
+          (caseItem.caseName.toLowerCase().includes(value.toLowerCase()) ||
+            caseItem.patient.name.toLowerCase().includes(value.toLowerCase())) &&
+          !selectedCases.includes(caseItem.id)
+      );
+      setCaseSuggestions(suggestions);
+    } else {
+      setCaseSuggestions([]);
+    }
+  };
+
+  const addCase = (caseId: string) => {
+    const caseItem = userCases.find(c => c.id === caseId);
+    if (caseItem && !selectedCases.includes(caseId)) {
+      setSelectedCases([...selectedCases, caseId]);
+    }
+    setCaseInput('');
+    setCaseSuggestions([]);
+  };
+
+  const removeCase = (caseId: string) => {
+    setSelectedCases(selectedCases.filter(id => id !== caseId));
+  };
+
+  const handleCaseKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && caseSuggestions.length > 0) {
+      e.preventDefault();
+      addCase(caseSuggestions[0].id);
+    } else if (e.key === 'Backspace' && !caseInput && selectedCases.length > 0) {
+      setSelectedCases(selectedCases.slice(0, -1));
+    }
+  };
 
   const handleEmailInputChange = (value: string) => {
     setEmailInput(value);
@@ -93,14 +129,6 @@ const CreateMTBModal = ({ open, onOpenChange, onCreateMTB }: CreateMTBModalProps
   const useProfilePicture = () => {
     if (state.loggedInUser?.profilePicture) {
       setDpImage(state.loggedInUser.profilePicture);
-    }
-  };
-
-  const toggleCase = (caseId: string) => {
-    if (selectedCases.includes(caseId)) {
-      setSelectedCases(selectedCases.filter(id => id !== caseId));
-    } else {
-      setSelectedCases([...selectedCases, caseId]);
     }
   };
 
@@ -250,35 +278,59 @@ const CreateMTBModal = ({ open, onOpenChange, onCreateMTB }: CreateMTBModalProps
             </p>
           </div>
 
-          {/* Add Cases */}
+          {/* Add Cases - Gmail style search */}
           <div className="space-y-2">
             <Label>Add Cases</Label>
-            {state.cases.length > 0 ? (
-              <div className="border border-input rounded-md max-h-40 overflow-y-auto">
-                {state.cases.map(caseItem => (
-                  <div
-                    key={caseItem.id}
-                    className="flex items-center gap-3 px-3 py-2 hover:bg-accent border-b border-border last:border-0"
-                  >
-                    <Checkbox
-                      id={`case-${caseItem.id}`}
-                      checked={selectedCases.includes(caseItem.id)}
-                      onCheckedChange={() => toggleCase(caseItem.id)}
-                    />
-                    <label
-                      htmlFor={`case-${caseItem.id}`}
-                      className="flex-1 cursor-pointer text-sm"
+            <div className="relative">
+              <div className="min-h-[42px] p-2 border border-input rounded-md bg-background flex flex-wrap gap-1 items-center">
+                {selectedCases.map(caseId => {
+                  const caseItem = userCases.find(c => c.id === caseId);
+                  return caseItem ? (
+                    <span
+                      key={caseId}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-sm"
                     >
-                      <span className="font-medium">{caseItem.patient.name}</span>
-                      <span className="text-muted-foreground ml-2">
-                        - {caseItem.patient.cancerType}
-                      </span>
-                    </label>
-                  </div>
-                ))}
+                      {caseItem.caseName}
+                      <button
+                        type="button"
+                        onClick={() => removeCase(caseId)}
+                        className="hover:bg-primary/20 rounded-full p-0.5"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+                <input
+                  type="text"
+                  value={caseInput}
+                  onChange={e => handleCaseInputChange(e.target.value)}
+                  onKeyDown={handleCaseKeyDown}
+                  placeholder={selectedCases.length === 0 ? 'Search cases...' : ''}
+                  className="flex-1 min-w-[150px] bg-transparent border-none outline-none text-sm"
+                />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground py-4 text-center border border-dashed border-border rounded-md">
+              {/* Case Suggestions dropdown */}
+              {caseSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                  {caseSuggestions.map(caseItem => (
+                    <button
+                      key={caseItem.id}
+                      type="button"
+                      onClick={() => addCase(caseItem.id)}
+                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm"
+                    >
+                      <div className="font-medium">{caseItem.caseName}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {caseItem.patient.name} - {caseItem.patient.cancerType}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {userCases.length === 0 && (
+              <p className="text-sm text-muted-foreground py-2">
                 No cases available. Create cases first to add them to this MTB.
               </p>
             )}

@@ -28,12 +28,14 @@ export interface UploadedFile {
 
 export interface Case {
   id: string;
+  caseName: string; // Unique case name for referencing in MTBs
   patientId: string;
   patient: PatientData;
   files: UploadedFile[];
   status: 'Pending' | 'In Review' | 'Completed';
   createdDate: string;
   clinicalSummary?: string;
+  ownerId?: string; // User ID of case creator
 }
 
 export interface Expert {

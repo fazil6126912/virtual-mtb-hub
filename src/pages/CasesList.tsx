@@ -9,24 +9,18 @@ const CasesList = () => {
   const { state } = useApp();
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-muted flex flex-col">
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {/* Breadcrumb */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="vmtb-tab-active text-foreground">My Cases</span>
-          </div>
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-card rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-          </button>
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+          <CaseTable 
+            cases={state.cases} 
+            title="My Cases" 
+            showBackButton
+            onBack={() => navigate(-1)}
+          />
         </div>
-
-        <CaseTable cases={state.cases} title="My Cases" />
       </main>
     </div>
   );

@@ -151,17 +151,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
-  const createCase = (clinicalSummary?: string): Case | null => {
+  const createCase = (caseName: string, clinicalSummary?: string): Case | null => {
     if (!state.currentPatient || state.uploadedFiles.length === 0) return null;
+
+    // Check if case name already exists for this user
+    const caseNameExists = state.cases.some(
+      c => c.caseName === caseName && c.ownerId === state.loggedInUser?.id
+    );
+    if (caseNameExists) return null;
 
     const newCase: Case = {
       id: generateId(),
+      caseName,
       patientId: generateId(),
       patient: state.currentPatient,
       files: [...state.uploadedFiles],
       status: 'Pending',
       createdDate: new Date().toISOString(),
       clinicalSummary,
+      ownerId: state.loggedInUser?.id,
     };
 
     setState(prev => ({
