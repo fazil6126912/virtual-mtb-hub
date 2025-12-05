@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
-import { User, LogOut, Edit } from 'lucide-react';
+import { User, LogOut, Edit, Mail, Bell } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,19 +10,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import EditProfileModal from './EditProfileModal';
+import InvitationsModal, { Invitation } from './InvitationsModal';
 
 /**
  * Header component with full-width layout.
  * Logo flush-left, navigation and user menu flush-right.
- * Includes Edit Profile and Logout options.
+ * Includes Edit Profile, Invitations, and Logout options.
+ * Shows notification badge for unread invitations.
  */
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, logout, updateUser, initializeEmailChange } = useApp();
+  const { state, logout, updateUser, initializeEmailChange, markInvitationsRead, acceptInvitation, declineInvitation } = useApp();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [invitationsOpen, setInvitationsOpen] = useState(false);
 
   const isActive = (path: string) => location.pathname.startsWith(path);
+
+  // Get pending invitations for current user
+  const userInvitations = state.invitations.filter(
+    inv => inv.invited_user_email === state.loggedInUser?.email && inv.status === 'pending'
+  );
+  const unreadCount = userInvitations.filter(inv => !inv.read).length;
 
   const handleLogout = () => {
     logout();
@@ -39,6 +48,26 @@ const Header = () => {
     if (initializeEmailChange) {
       initializeEmailChange(newEmail);
       navigate('/verify-email-otp');
+    }
+  };
+
+  const handleOpenInvitations = () => {
+    setInvitationsOpen(true);
+    // Mark all invitations as read when opening the modal
+    if (markInvitationsRead) {
+      markInvitationsRead();
+    }
+  };
+
+  const handleAcceptInvitation = (invitation: Invitation) => {
+    if (acceptInvitation) {
+      acceptInvitation(invitation);
+    }
+  };
+
+  const handleDeclineInvitation = (invitation: Invitation) => {
+    if (declineInvitation) {
+      declineInvitation(invitation);
     }
   };
 
@@ -79,7 +108,7 @@ const Header = () => {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                  <button className="relative w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
                     {state.loggedInUser?.profilePicture ? (
                       <img
                         src={state.loggedInUser.profilePicture}
@@ -94,9 +123,15 @@ const Header = () => {
                         </div>
                       </div>
                     )}
+                    {/* Notification badge on profile icon */}
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center font-medium">
+                        {unreadCount}
+                      </span>
+                    )}
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-56">
                   {state.loggedInUser && (
                     <div className="px-3 py-2 border-b border-border">
                       <p className="font-medium text-sm">{state.loggedInUser.name}</p>
@@ -106,6 +141,15 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => setEditProfileOpen(true)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleOpenInvitations}>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Invitations
+                    {unreadCount > 0 && (
+                      <span className="ml-auto bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
+                        {unreadCount}
+                      </span>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive">
@@ -129,6 +173,15 @@ const Header = () => {
           onEmailChangeInitiate={handleEmailChangeInitiate}
         />
       )}
+
+      {/* Invitations Modal */}
+      <InvitationsModal
+        open={invitationsOpen}
+        onOpenChange={setInvitationsOpen}
+        invitations={userInvitations}
+        onAccept={handleAcceptInvitation}
+        onDecline={handleDeclineInvitation}
+      />
     </>
   );
 };

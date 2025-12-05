@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      invitations: {
+        Row: {
+          created_at: string
+          id: string
+          invited_by_id: string
+          invited_by_name: string
+          invited_user_email: string
+          mtb_id: string
+          mtb_name: string
+          read: boolean
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          invited_by_id: string
+          invited_by_name: string
+          invited_user_email: string
+          mtb_id: string
+          mtb_name: string
+          read?: boolean
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          invited_by_id?: string
+          invited_by_name?: string
+          invited_user_email?: string
+          mtb_id?: string
+          mtb_name?: string
+          read?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

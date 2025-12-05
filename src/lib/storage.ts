@@ -62,6 +62,20 @@ export interface MTB {
   isOwner: boolean;
   cases: string[];
   experts: string[];
+  dpImage?: string; // Display picture for MTB
+  ownerId?: string; // Owner user ID
+}
+
+export interface Invitation {
+  id: string;
+  mtb_id: string;
+  mtb_name: string;
+  invited_by_id: string;
+  invited_by_name: string;
+  invited_user_email: string;
+  status: 'pending' | 'accepted' | 'declined';
+  read: boolean;
+  created_at: string;
 }
 
 export interface AppState {
@@ -76,7 +90,8 @@ export interface AppState {
   otpEmail: string | null;
   otp: string | null;
   emailVerificationOtp: string | null;
-  emailVerificationPending: string | null; // New email awaiting verification
+  emailVerificationPending: string | null;
+  invitations: Invitation[];
 }
 
 const STORAGE_KEY = 'vmtb_app_state';
@@ -146,6 +161,7 @@ const getDefaultState = (): AppState => ({
   otp: null,
   emailVerificationOtp: null,
   emailVerificationPending: null,
+  invitations: [],
 });
 
 export const loadState = (): AppState => {

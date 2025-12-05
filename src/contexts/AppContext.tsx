@@ -6,6 +6,8 @@ import {
   UploadedFile,
   Case,
   ChatMessage,
+  MTB,
+  Invitation,
   loadState,
   saveState,
   generateId,
@@ -26,10 +28,20 @@ interface AppContextType {
   updateFileCategory: (id: string, category: string) => void;
   updateFileExtractedData: (id: string, data: Record<string, string>) => void;
   createCase: (clinicalSummary?: string) => Case | null;
+  deleteCase: (caseId: string) => void;
   sendMessage: (caseId: string, expertId: string, content: string) => void;
   sendGroupMessage: (caseId: string, content: string) => void;
   clearUploadedFiles: () => void;
   updateUser: (updates: Partial<User>) => void;
+  // MTB functions
+  createMTB: (name: string, dpImage: string | null, caseIds: string[]) => MTB | null;
+  deleteMTB: (mtbId: string) => void;
+  removeExpertFromMTB: (mtbId: string, expertId: string) => void;
+  // Invitation functions
+  sendInvitations: (mtbId: string, mtbName: string, emails: string[]) => void;
+  markInvitationsRead: () => void;
+  acceptInvitation: (invitation: Invitation) => void;
+  declineInvitation: (invitation: Invitation) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -162,6 +174,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return newCase;
   };
 
+  const deleteCase = (caseId: string) => {
+    setState(prev => ({
+      ...prev,
+      cases: prev.cases.filter(c => c.id !== caseId),
+      // Also remove from MTBs
+      mtbs: prev.mtbs.map(mtb => ({
+        ...mtb,
+        cases: mtb.cases.filter(id => id !== caseId),
+        casesCount: mtb.cases.filter(id => id !== caseId).length,
+      })),
+    }));
+  };
+
   const sendMessage = (caseId: string, expertId: string, content: string) => {
     if (!state.loggedInUser) return;
 
@@ -262,6 +287,139 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return false;
   };
 
+  // Create a new MTB
+  const createMTB = (name: string, dpImage: string | null, caseIds: string[]): MTB | null => {
+    if (!state.loggedInUser) return null;
+
+    const newMTB: MTB = {
+      id: generateId(),
+      name,
+      doctorName: state.loggedInUser.name,
+      description: `MTB created by ${state.loggedInUser.name}`,
+      expertsCount: 0,
+      casesCount: caseIds.length,
+      isOwner: true,
+      cases: caseIds,
+      experts: [],
+      dpImage: dpImage || undefined,
+      ownerId: state.loggedInUser.id,
+    };
+
+    setState(prev => ({
+      ...prev,
+      mtbs: [...prev.mtbs, newMTB],
+    }));
+
+    return newMTB;
+  };
+
+  // Delete an MTB
+  const deleteMTB = (mtbId: string) => {
+    setState(prev => ({
+      ...prev,
+      mtbs: prev.mtbs.filter(m => m.id !== mtbId),
+    }));
+  };
+
+  // Remove an expert from MTB
+  const removeExpertFromMTB = (mtbId: string, expertId: string) => {
+    setState(prev => ({
+      ...prev,
+      mtbs: prev.mtbs.map(mtb =>
+        mtb.id === mtbId
+          ? {
+              ...mtb,
+              experts: mtb.experts.filter(id => id !== expertId),
+              expertsCount: mtb.experts.filter(id => id !== expertId).length,
+            }
+          : mtb
+      ),
+    }));
+  };
+
+  // Send invitations to expert emails
+  const sendInvitations = (mtbId: string, mtbName: string, emails: string[]) => {
+    if (!state.loggedInUser) return;
+
+    const newInvitations: Invitation[] = emails.map(email => ({
+      id: generateId(),
+      mtb_id: mtbId,
+      mtb_name: mtbName,
+      invited_by_id: state.loggedInUser!.id,
+      invited_by_name: state.loggedInUser!.name,
+      invited_user_email: email,
+      status: 'pending',
+      read: false,
+      created_at: new Date().toISOString(),
+    }));
+
+    setState(prev => ({
+      ...prev,
+      invitations: [...prev.invitations, ...newInvitations],
+    }));
+  };
+
+  // Mark all invitations for current user as read
+  const markInvitationsRead = () => {
+    if (!state.loggedInUser) return;
+
+    setState(prev => ({
+      ...prev,
+      invitations: prev.invitations.map(inv =>
+        inv.invited_user_email === state.loggedInUser?.email
+          ? { ...inv, read: true }
+          : inv
+      ),
+    }));
+  };
+
+  // Accept an invitation
+  const acceptInvitation = (invitation: Invitation) => {
+    if (!state.loggedInUser) return;
+
+    setState(prev => ({
+      ...prev,
+      // Update invitation status
+      invitations: prev.invitations.map(inv =>
+        inv.id === invitation.id ? { ...inv, status: 'accepted' as const } : inv
+      ),
+      // Add user as enrolled to the MTB
+      mtbs: prev.mtbs.map(mtb =>
+        mtb.id === invitation.mtb_id
+          ? {
+              ...mtb,
+              expertsCount: mtb.expertsCount + 1,
+            }
+          : mtb
+      ).concat(
+        // Add the MTB to user's enrolled MTBs if not already there
+        prev.mtbs.some(m => m.id === invitation.mtb_id && !m.isOwner)
+          ? []
+          : [{
+              id: invitation.mtb_id + '_enrolled',
+              name: invitation.mtb_name,
+              doctorName: invitation.invited_by_name,
+              description: `Enrolled MTB`,
+              expertsCount: 0,
+              casesCount: 0,
+              isOwner: false,
+              cases: [],
+              experts: [],
+            }]
+      ),
+    }));
+  };
+
+  // Decline an invitation
+  const declineInvitation = (invitation: Invitation) => {
+    setState(prev => ({
+      ...prev,
+      invitations: prev.invitations.map(inv =>
+        inv.id === invitation.id ? { ...inv, status: 'declined' as const } : inv
+      ),
+    }));
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -279,10 +437,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateFileCategory,
         updateFileExtractedData,
         createCase,
+        deleteCase,
         sendMessage,
         sendGroupMessage,
         clearUploadedFiles,
         updateUser,
+        createMTB,
+        deleteMTB,
+        removeExpertFromMTB,
+        sendInvitations,
+        markInvitationsRead,
+        acceptInvitation,
+        declineInvitation,
       }}
     >
       {children}
