@@ -27,12 +27,14 @@ const tabs = [
 const MTBDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state, removeExpertFromMTB, sendInvitations } = useApp();
+  const { state, removeExpertFromMTB, sendInvitations, addCasesToMTB, deleteCase, removeCaseFromMTB } = useApp();
   const [activeTab, setActiveTab] = useState('mycases');
   const [showAddExpert, setShowAddExpert] = useState(false);
   const [showAddCase, setShowAddCase] = useState(false);
   const [expertToRemove, setExpertToRemove] = useState<string | null>(null);
   const [removeExpertModalOpen, setRemoveExpertModalOpen] = useState(false);
+  const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
+  const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
 
   // Defensive checks
   if (!id) {
@@ -98,10 +100,10 @@ const MTBDetail = () => {
   };
 
   const handleAddCases = (caseIds: string[]) => {
-    // In a real app, this would update the MTB with the new cases
-    // For now, this is a placeholder for future functionality
-    console.log('Adding cases to MTB:', caseIds);
-    // The cases are already in state, just log for now
+    if (addCasesToMTB) {
+      addCasesToMTB(mtb.id, caseIds);
+      setShowAddCase(false);
+    }
   };
 
   const handleRemoveExpertClick = (expertId: string) => {
@@ -115,6 +117,20 @@ const MTBDetail = () => {
     }
     setRemoveExpertModalOpen(false);
     setExpertToRemove(null);
+  };
+
+  const handleDeleteCaseClick = (caseId: string) => {
+    setCaseToDelete(caseId);
+    setDeleteCaseModalOpen(true);
+  };
+
+  const handleConfirmDeleteCase = () => {
+    if (caseToDelete && removeCaseFromMTB) {
+      // Remove case from this MTB only (do NOT delete globally)
+      removeCaseFromMTB(mtb.id, caseToDelete);
+    }
+    setDeleteCaseModalOpen(false);
+    setCaseToDelete(null);
   };
 
   const renderTabContent = () => {
@@ -188,22 +204,21 @@ const MTBDetail = () => {
                             <td className="py-4 px-4">
                               <div className="flex items-center gap-2">
                                 <button 
-                                  onClick={() => {}}
+                                  onClick={() => navigate(`/cases/${caseItem.id}`)}
                                   className="p-2 rounded-lg hover:bg-primary/10 text-primary transition-colors"
                                   title="View case"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button 
-                                  onClick={() => {}}
+                                  onClick={() => navigate(`/file-preview/${caseItem.id}`)}
                                   className="p-2 rounded-lg hover:bg-blue-500/10 text-blue-500 transition-colors"
                                   title="Edit case"
                                 >
                                   <Pencil className="w-4 h-4" />
                                 </button>
                                 <button 
-                                  onClick={() => {}}
-                                  className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
+                                  onClick={() => handleDeleteCaseClick(caseItem.id)}                                  className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"
                                   title="Delete case"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -273,8 +288,7 @@ const MTBDetail = () => {
                             <td className="py-4 px-4 text-foreground text-sm">{new Date(caseItem.createdDate).toLocaleDateString()}</td>
                             <td className="py-4 px-4">
                               <button 
-                                onClick={() => {}}
-                                className="p-2 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                                onClick={() => navigate(`/cases/${caseItem.id}`)}                                className="p-2 rounded-lg hover:bg-primary/10 text-primary transition-colors"
                                 title="View case"
                               >
                                 <Eye className="w-4 h-4" />
@@ -430,6 +444,17 @@ const MTBDetail = () => {
           description="Are you sure you want to remove this expert from the MTB?"
           confirmLabel="Remove"
           onConfirm={handleConfirmRemoveExpert}
+          destructive
+        />
+
+        {/* Delete Case Confirmation Modal */}
+        <ConfirmModal
+          open={deleteCaseModalOpen}
+          onOpenChange={setDeleteCaseModalOpen}
+          title="Delete Case"
+          description="Are you sure you want to delete this case? This action cannot be undone."
+          confirmLabel="Delete"
+          onConfirm={handleConfirmDeleteCase}
           destructive
         />
       </div>

@@ -37,6 +37,8 @@ interface AppContextType {
   createMTB: (name: string, dpImage: string | null, caseIds: string[]) => MTB | null;
   deleteMTB: (mtbId: string) => void;
   removeExpertFromMTB: (mtbId: string, expertId: string) => void;
+  addCasesToMTB: (mtbId: string, caseIds: string[]) => void;
+  removeCaseFromMTB: (mtbId: string, caseId: string) => void;
   // Invitation functions
   sendInvitations: (mtbId: string, mtbName: string, emails: string[]) => void;
   markInvitationsRead: () => void;
@@ -347,6 +349,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  // Add cases to MTB
+  const addCasesToMTB = (mtbId: string, caseIds: string[]) => {
+    setState(prev => ({
+      ...prev,
+      mtbs: prev.mtbs.map(mtb =>
+        mtb.id === mtbId
+          ? {
+              ...mtb,
+              cases: [...mtb.cases, ...caseIds.filter(id => !mtb.cases.includes(id))],
+              casesCount: [...mtb.cases, ...caseIds.filter(id => !mtb.cases.includes(id))].length,
+            }
+          : mtb
+      ),
+    }));
+  };
+
+  // Remove a case from an MTB (does NOT delete the global case)
+  const removeCaseFromMTB = (mtbId: string, caseId: string) => {
+    setState(prev => ({
+      ...prev,
+      mtbs: prev.mtbs.map(mtb =>
+        mtb.id === mtbId
+          ? {
+              ...mtb,
+              cases: mtb.cases.filter(id => id !== caseId),
+              casesCount: mtb.cases.filter(id => id !== caseId).length,
+            }
+          : mtb
+      ),
+    }));
+  };
+
   // Send invitations to expert emails
   const sendInvitations = (mtbId: string, mtbName: string, emails: string[]) => {
     if (!state.loggedInUser) return;
@@ -455,6 +489,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createMTB,
         deleteMTB,
         removeExpertFromMTB,
+        addCasesToMTB,
+        removeCaseFromMTB,
         sendInvitations,
         markInvitationsRead,
         acceptInvitation,
