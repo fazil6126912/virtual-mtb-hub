@@ -4,12 +4,10 @@ import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import { generateId } from '@/lib/storage';
-import { useState } from 'react';
 
 const CaseSummary = () => {
   const navigate = useNavigate();
   const { state, createCase } = useApp();
-  const [caseName, setCaseName] = useState('');
 
   if (!state.currentPatient || state.uploadedFiles.length === 0) {
     navigate('/home');
@@ -37,21 +35,7 @@ const CaseSummary = () => {
   };
 
   const handleFinish = () => {
-    if (!caseName.trim()) {
-      toast.error('Case name is required');
-      return;
-    }
-
-    // Check if case name already exists
-    const caseNameExists = state.cases.some(
-      c => c.caseName === caseName.trim() && c.ownerId === state.loggedInUser?.id
-    );
-    if (caseNameExists) {
-      toast.error('You already have a case with this name. Case names must be unique.');
-      return;
-    }
-
-    const newCase = createCase(caseName.trim(), clinicalSummary);
+    const newCase = createCase();
     if (newCase) {
       toast.success('Case created successfully!');
       navigate('/cases');
@@ -76,23 +60,6 @@ const CaseSummary = () => {
             >
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </button>
-          </div>
-
-          {/* Case Name - Required Field */}
-          <div className="bg-muted rounded-xl p-6 mb-8">
-            <div className="mb-4">
-              <label className="block text-lg font-semibold text-foreground mb-3">Case Name</label>
-              <input
-                type="text"
-                value={caseName}
-                onChange={e => setCaseName(e.target.value)}
-                placeholder="Enter a unique case name"
-                className="vmtb-input w-full mb-2"
-              />
-              <p className="text-xs text-muted-foreground">
-                Whenever you share this case with any MTB, the case will be referenced using this name.
-              </p>
-            </div>
           </div>
 
           {/* Patient Profile */}

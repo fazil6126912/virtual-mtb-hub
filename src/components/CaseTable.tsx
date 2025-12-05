@@ -14,6 +14,7 @@ interface CaseTableProps {
   onBack?: () => void;
   onEditCase?: (caseId: string) => void;
   showPatientName?: boolean; // If false, show case name in second column instead
+  hideTitle?: boolean; // If true, hide the card title
 }
 
 /**
@@ -31,7 +32,8 @@ const CaseTable = ({
   showBackButton = false,
   onBack,
   onEditCase,
-  showPatientName = true
+  showPatientName = true,
+  hideTitle = false
 }: CaseTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -73,33 +75,61 @@ const CaseTable = ({
   return (
     <>
       <div className="vmtb-card p-6 animate-fade-in">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-foreground">
-            {title}
-          </h2>
-          <div className="flex items-center gap-3">
-            {showBackButton && onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 hover:bg-muted rounded-lg transition-colors"
-                title="Go back"
-                aria-label="Go back"
-              >
-                <ArrowLeft className="w-5 h-5 text-muted-foreground" />
-              </button>
-            )}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
+        {!hideTitle && (
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-foreground">
+              {title}
+            </h2>
+            <div className="flex items-center gap-3">
+              {showBackButton && onBack && (
+                <button
+                  onClick={onBack}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  title="Go back"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+                </button>
+              )}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
+        {hideTitle && (
+          <div className="flex items-center justify-end mb-6">
+            <div className="flex items-center gap-3">
+              {showBackButton && onBack && (
+                <button
+                  onClick={onBack}
+                  className="p-2 hover:bg-muted rounded-lg transition-colors"
+                  title="Go back"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+                </button>
+              )}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="pl-9 pr-4 py-2 border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full">

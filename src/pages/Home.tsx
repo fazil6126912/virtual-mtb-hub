@@ -9,18 +9,28 @@ const Home = () => {
   const [age, setAge] = useState('');
   const [sex, setSex] = useState('');
   const [cancerType, setCancerType] = useState('');
-  const { setCurrentPatient } = useApp();
+  const [caseName, setCaseName] = useState('');
+  const { setCurrentPatient, state } = useApp();
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !age || !sex || !cancerType) {
+    if (!name || !age || !sex || !cancerType || !caseName) {
       toast.error('Please fill in all fields');
       return;
     }
 
-    setCurrentPatient({ name, age, sex, cancerType });
+    // Check if case name already exists for this user
+    const caseNameExists = state.cases.some(
+      c => c.caseName === caseName.trim() && c.ownerId === state.loggedInUser?.id
+    );
+    if (caseNameExists) {
+      toast.error('You already have a case with this name. Please choose a different name.');
+      return;
+    }
+
+    setCurrentPatient({ name, age, sex, cancerType, caseName });
     navigate('/upload');
   };
 
@@ -42,6 +52,9 @@ const Home = () => {
                   className="vmtb-input"
                   placeholder="Patient name"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This patient name will remain anonymized and will not be shared with any MTB.
+                </p>
               </div>
 
               <div>
@@ -80,6 +93,20 @@ const Home = () => {
                   className="vmtb-input"
                   placeholder="e.g., Lung Cancer"
                 />
+              </div>
+
+              <div>
+                <label className="block text-foreground font-medium mb-2">Case Name</label>
+                <input
+                  type="text"
+                  value={caseName}
+                  onChange={e => setCaseName(e.target.value)}
+                  className="vmtb-input"
+                  placeholder="Enter a unique case name"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  When you share this case with any MTB, the case will be referenced using this name.
+                </p>
               </div>
 
               <button type="submit" className="vmtb-btn-primary w-full">

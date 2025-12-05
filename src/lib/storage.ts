@@ -14,6 +14,7 @@ export interface PatientData {
   age: string;
   sex: string;
   cancerType: string;
+  caseName?: string;
 }
 
 export interface UploadedFile {

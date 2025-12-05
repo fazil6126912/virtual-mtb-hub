@@ -19,7 +19,7 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
   return (
     <div
       onClick={() => navigate(`/mtbs/${mtb.id}`)}
-      className="vmtb-card vmtb-card-hover cursor-pointer overflow-hidden animate-fade-in"
+      className="vmtb-card vmtb-card-hover cursor-pointer overflow-hidden animate-fade-in flex flex-col h-full"
     >
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-muted to-muted/50 p-4 relative">
@@ -27,22 +27,29 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
           <h3 className="font-semibold text-foreground">{mtb.name}</h3>
           <p className="text-sm text-muted-foreground">{mtb.doctorName}</p>
         </div>
-        {/* Avatar */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-            <div className="absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-            <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-4 h-4 bg-sky-300 rounded-full opacity-80" />
-          </div>
+        {/* Avatar - Display actual MTB image if available */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center border-2 border-background">
+          {mtb.dpImage ? (
+            <img src={mtb.dpImage} alt={mtb.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
+              <div className="absolute bottom-0 left-0 right-0 h-5 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
+              <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-4 h-4 bg-sky-300 rounded-full opacity-80" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Description */}
-      <div className="p-4">
+      {/* Description - Flexible growth */}
+      <div className="p-4 flex-grow">
         <p className="text-sm text-muted-foreground line-clamp-3">{mtb.description}</p>
       </div>
 
-      {/* Footer */}
-      <div className="px-4 py-3 border-t border-border flex items-center justify-between text-sm">
+      {/* Divider - Fixed */}
+      <div className="border-t border-border"></div>
+
+      {/* Footer - Always at bottom */}
+      <div className="px-4 py-3 flex items-center justify-between text-sm">
         <span className="text-foreground">{expertCount} {expertCount === 1 ? 'Expert' : 'Experts'}</span>
         <span className="text-foreground">{caseCount} {caseCount === 1 ? 'Case' : 'Cases'}</span>
       </div>

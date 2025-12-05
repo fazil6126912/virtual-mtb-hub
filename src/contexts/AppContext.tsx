@@ -151,8 +151,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
-  const createCase = (caseName: string, clinicalSummary?: string): Case | null => {
-    if (!state.currentPatient || state.uploadedFiles.length === 0) return null;
+  const createCase = (clinicalSummary?: string): Case | null => {
+    if (!state.currentPatient || !state.currentPatient.caseName || state.uploadedFiles.length === 0) return null;
+
+    const caseName = state.currentPatient.caseName;
 
     // Check if case name already exists for this user
     const caseNameExists = state.cases.some(
