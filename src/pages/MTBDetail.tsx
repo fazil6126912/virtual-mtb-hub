@@ -193,7 +193,7 @@ const MTBDetail = () => {
                             <td className="py-4 px-4 text-foreground">{caseItem.patient.cancerType}</td>
                             <td className="py-4 px-4">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                caseItem.status === 'completed' 
+                                caseItem.status === 'Completed' 
                                   ? 'bg-green-100 text-green-700' 
                                   : 'bg-yellow-100 text-yellow-700'
                               }`}>
@@ -278,7 +278,7 @@ const MTBDetail = () => {
                             <td className="py-4 px-4 text-foreground">{caseItem.patient.cancerType}</td>
                             <td className="py-4 px-4">
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                caseItem.status === 'completed' 
+                                caseItem.status === 'Completed' 
                                   ? 'bg-green-100 text-green-700' 
                                   : 'bg-yellow-100 text-yellow-700'
                               }`}>
