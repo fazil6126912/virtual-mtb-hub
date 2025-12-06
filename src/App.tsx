@@ -3,15 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AppProvider, useApp } from "@/contexts/AppContext";
+import { AppProvider } from "@/contexts/AppContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
 // Pages
 import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import OTP from "./pages/OTP";
-import VerifyEmailOTP from "./pages/VerifyEmailOTP";
-import ForgotPassword from "./pages/ForgotPassword";
+import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import UploadReview from "./pages/UploadReview";
@@ -27,10 +24,18 @@ const queryClient = new QueryClient();
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { state } = useApp();
+  const { user, loading } = useAuth();
   
-  if (!state.loggedInUser) {
-    return <Navigate to="/login" replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return <Navigate to="/auth" replace />;
   }
   
   return <>{children}</>;
@@ -38,9 +43,17 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Auth Route Component (redirect if already logged in)
 const AuthRoute = ({ children }: { children: React.ReactNode }) => {
-  const { state } = useApp();
+  const { user, loading } = useAuth();
   
-  if (state.loggedInUser) {
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (user) {
     return <Navigate to="/home" replace />;
   }
   
@@ -51,12 +64,8 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<AuthRoute><Landing /></AuthRoute>} />
-      <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
-      <Route path="/signup" element={<AuthRoute><Signup /></AuthRoute>} />
-      <Route path="/otp" element={<OTP />} />
-      <Route path="/verify-email-otp" element={<ProtectedRoute><VerifyEmailOTP /></ProtectedRoute>} />
-      <Route path="/forgot-password" element={<AuthRoute><ForgotPassword /></AuthRoute>} />
+      <Route path="/" element={<Landing />} />
+      <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
 
       {/* Protected Routes */}
       <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
@@ -78,15 +87,17 @@ const AppRoutes = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AppProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </TooltipProvider>
-    </AppProvider>
+    <AuthProvider>
+      <AppProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </TooltipProvider>
+      </AppProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 

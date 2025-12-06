@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { User, LogOut, Edit, Mail, Bell } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +23,8 @@ import InvitationsModal, { Invitation } from './InvitationsModal';
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { state, logout, updateUser, initializeEmailChange, markInvitationsRead, acceptInvitation, declineInvitation } = useApp();
+  const { profile, signOut } = useAuth();
+  const { state, markInvitationsRead, acceptInvitation, declineInvitation } = useApp();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
 
@@ -29,31 +32,18 @@ const Header = () => {
 
   // Get pending invitations for current user
   const userInvitations = state.invitations.filter(
-    inv => inv.invited_user_email === state.loggedInUser?.email && inv.status === 'pending'
+    inv => inv.invited_user_email === profile?.email && inv.status === 'pending'
   );
   const unreadCount = userInvitations.filter(inv => !inv.read).length;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
+    toast.success('Logged out successfully');
     navigate('/');
-  };
-
-  const handleSaveProfile = (updates: Partial<typeof state.loggedInUser>) => {
-    if (state.loggedInUser && updateUser) {
-      updateUser(updates);
-    }
-  };
-
-  const handleEmailChangeInitiate = (newEmail: string) => {
-    if (initializeEmailChange) {
-      initializeEmailChange(newEmail);
-      navigate('/verify-email-otp');
-    }
   };
 
   const handleOpenInvitations = () => {
     setInvitationsOpen(true);
-    // Mark all invitations as read when opening the modal
     if (markInvitationsRead) {
       markInvitationsRead();
     }
@@ -109,10 +99,10 @@ const Header = () => {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="relative w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
-                    {state.loggedInUser?.profilePicture ? (
+                    {profile?.avatar_url ? (
                       <img
-                        src={state.loggedInUser.profilePicture}
-                        alt={state.loggedInUser.name}
+                        src={profile.avatar_url}
+                        alt={profile.name}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -132,10 +122,10 @@ const Header = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  {state.loggedInUser && (
+                  {profile && (
                     <div className="px-3 py-2 border-b border-border">
-                      <p className="font-medium text-sm">{state.loggedInUser.name}</p>
-                      <p className="text-xs text-muted-foreground">{state.loggedInUser.email}</p>
+                      <p className="font-medium text-sm">{profile.name}</p>
+                      <p className="text-xs text-muted-foreground">{profile.email}</p>
                     </div>
                   )}
                   <DropdownMenuItem onClick={() => setEditProfileOpen(true)}>
@@ -164,15 +154,10 @@ const Header = () => {
       </header>
 
       {/* Edit Profile Modal */}
-      {state.loggedInUser && (
-        <EditProfileModal
-          open={editProfileOpen}
-          onOpenChange={setEditProfileOpen}
-          user={state.loggedInUser}
-          onSave={handleSaveProfile}
-          onEmailChangeInitiate={handleEmailChangeInitiate}
-        />
-      )}
+      <EditProfileModal
+        open={editProfileOpen}
+        onOpenChange={setEditProfileOpen}
+      />
 
       {/* Invitations Modal */}
       <InvitationsModal

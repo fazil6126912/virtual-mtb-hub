@@ -14,6 +14,79 @@ export type Database = {
   }
   public: {
     Tables: {
+      cases: {
+        Row: {
+          created_at: string
+          id: string
+          patient_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          patient_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          patient_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cases_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          case_id: string
+          content: string
+          created_at: string
+          id: string
+          is_group_message: boolean
+          recipient_id: string | null
+          sender_id: string
+        }
+        Insert: {
+          case_id: string
+          content: string
+          created_at?: string
+          id?: string
+          is_group_message?: boolean
+          recipient_id?: string | null
+          sender_id: string
+        }
+        Update: {
+          case_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_group_message?: boolean
+          recipient_id?: string | null
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           created_at: string
@@ -48,14 +121,221 @@ export type Database = {
           read?: boolean
           status?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "fk_invitations_mtb"
+            columns: ["mtb_id"]
+            isOneToOne: false
+            referencedRelation: "mtbs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mtb_cases: {
+        Row: {
+          added_at: string
+          case_id: string
+          id: string
+          mtb_id: string
+        }
+        Insert: {
+          added_at?: string
+          case_id: string
+          id?: string
+          mtb_id: string
+        }
+        Update: {
+          added_at?: string
+          case_id?: string
+          id?: string
+          mtb_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mtb_cases_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mtb_cases_mtb_id_fkey"
+            columns: ["mtb_id"]
+            isOneToOne: false
+            referencedRelation: "mtbs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mtb_members: {
+        Row: {
+          id: string
+          joined_at: string
+          mtb_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          mtb_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          mtb_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mtb_members_mtb_id_fkey"
+            columns: ["mtb_id"]
+            isOneToOne: false
+            referencedRelation: "mtbs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mtbs: {
+        Row: {
+          created_at: string
+          display_picture: string | null
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_picture?: string | null
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          display_picture?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+        }
         Relationships: []
+      }
+      patients: {
+        Row: {
+          age: number | null
+          cancer_type: string | null
+          created_at: string
+          id: string
+          name: string
+          sex: string | null
+          user_id: string
+        }
+        Insert: {
+          age?: number | null
+          cancer_type?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          sex?: string | null
+          user_id: string
+        }
+        Update: {
+          age?: number | null
+          cancer_type?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          sex?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      uploaded_files: {
+        Row: {
+          case_id: string
+          created_at: string
+          extracted_data: Json | null
+          file_category: string | null
+          id: string
+          name: string
+          size: number | null
+          storage_path: string | null
+          type: string | null
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          extracted_data?: Json | null
+          file_category?: string | null
+          id?: string
+          name: string
+          size?: number | null
+          storage_path?: string | null
+          type?: string | null
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          extracted_data?: Json | null
+          file_category?: string | null
+          id?: string
+          name?: string
+          size?: number | null
+          storage_path?: string | null
+          type?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uploaded_files_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_mtb_member: {
+        Args: { _mtb_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
