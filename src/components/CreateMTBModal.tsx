@@ -76,6 +76,9 @@ const CreateMTBModal = ({ open, onOpenChange, onCreateMTB }: CreateMTBModalProps
     }
   };
 
+  // Get all user emails for suggestions (from registered users)
+  const allUserEmails = state.users?.map(u => u.email) || [];
+
   const handleEmailInputChange = (value: string) => {
     setEmailInput(value);
     if (value.trim()) {
