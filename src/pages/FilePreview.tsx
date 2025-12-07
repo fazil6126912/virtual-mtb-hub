@@ -95,7 +95,7 @@ const FilePreview = () => {
   }
 
   return (
-    <div className="h-screen bg-muted flex flex-col overflow-hidden">
+    <div className="h-screen bg-muted flex flex-col overflow-hidden overscroll-y-none">
       <Header />
       
       {/* Compact Single-Row File Navigation Header */}

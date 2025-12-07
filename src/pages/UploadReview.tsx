@@ -97,7 +97,7 @@ const UploadReview = () => {
       />
 
       {/* Main content - fixed layout */}
-      <main className="flex-1 flex flex-col overflow-hidden px-4 py-4">
+      <main className="flex-1 flex flex-col overflow-hidden px-4 py-4 overscroll-y-none">
         <div className="vmtb-card p-4 md:p-6 animate-fade-in flex flex-col flex-1 overflow-hidden">
           {/* Header row - fixed */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 flex-shrink-0">

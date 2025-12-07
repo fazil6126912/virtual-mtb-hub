@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { MTB } from '@/lib/storage';
 import { useApp } from '@/contexts/AppContext';
 
@@ -9,6 +10,7 @@ interface MTBCardProps {
 const MTBCard = ({ mtb }: MTBCardProps) => {
   const navigate = useNavigate();
   const { state } = useApp();
+  const [visitedNotifications, setVisitedNotifications] = useState<Set<string>>(new Set());
 
   // Calculate actual expert count for this MTB
   const expertCount = state.experts.filter(e => mtb.experts.includes(e.id)).length;
@@ -16,13 +18,30 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
   // Calculate actual case count for this MTB
   const caseCount = state.cases.filter(c => mtb.cases.includes(c.id)).length;
 
+  // Generate notifications: cases added to this MTB by other users
+  const notifications = state.cases
+    .filter(c => mtb.cases.includes(c.id) && c.ownerId !== state.loggedInUser?.id)
+    .map(c => ({
+      id: c.id,
+      text: `${c.caseName} shared by ${state.users.find(u => u.id === c.ownerId)?.name || 'Unknown'}`,
+      caseId: c.id,
+    }));
+
+  // Filter out visited notifications
+  const unvisitedNotifications = notifications.filter(n => !visitedNotifications.has(n.id));
+
+  const handleNotificationClick = (caseId: string, notificationId: string) => {
+    setVisitedNotifications(prev => new Set(prev).add(notificationId));
+    navigate(`/cases/${caseId}`);
+  };
+
   return (
     <div
       onClick={() => navigate(`/mtbs/${mtb.id}`)}
-      className="vmtb-card vmtb-card-hover cursor-pointer overflow-hidden animate-fade-in flex flex-col h-full"
+      className="vmtb-card vmtb-card-hover cursor-pointer overflow-hidden animate-fade-in flex flex-col h-56"
     >
       {/* Header with gradient */}
-      <div className="bg-gradient-to-r from-muted to-muted/50 p-4 relative">
+      <div className="bg-gradient-to-r from-muted to-muted/50 p-4 relative flex-shrink-0">
         <div className="pr-16">
           <h3 className="font-semibold text-foreground">{mtb.name}</h3>
           <p className="text-sm text-muted-foreground">{mtb.doctorName}</p>
@@ -40,16 +59,28 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
         </div>
       </div>
 
-      {/* Description - Flexible growth */}
-      <div className="p-4 flex-grow">
-        <p className="text-sm text-muted-foreground line-clamp-3">{mtb.description}</p>
+      {/* Notifications Area - Scrollable, hidden scrollbar */}
+      <div className="p-4 flex-grow overflow-y-auto scrollbar-hide" onClick={(e) => e.stopPropagation()}>
+        {unvisitedNotifications.length > 0 && (
+          <div className="space-y-2">
+            {unvisitedNotifications.map(notification => (
+              <button
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification.caseId, notification.id)}
+                className="block w-full text-left text-sm text-primary hover:underline py-1 transition-colors"
+              >
+                {notification.text}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Divider - Fixed */}
-      <div className="border-t border-border"></div>
+      <div className="border-t border-border flex-shrink-0"></div>
 
       {/* Footer - Always at bottom */}
-      <div className="px-4 py-3 flex items-center justify-between text-sm">
+      <div className="px-4 py-3 flex items-center justify-between text-sm flex-shrink-0">
         <span className="text-foreground">{expertCount} {expertCount === 1 ? 'Expert' : 'Experts'}</span>
         <span className="text-foreground">{caseCount} {caseCount === 1 ? 'Case' : 'Cases'}</span>
       </div>

@@ -41,14 +41,14 @@ const MTBsList = () => {
     <div className="min-h-screen bg-muted">
       <Header />
       
-      <div className="bg-background border-b border-border">
+      <div className="fixed top-12 left-0 right-0 bg-background border-b border-border z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between">
             <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
             <Button
               onClick={() => setCreateModalOpen(true)}
               size="sm"
-              className="rounded-full"
+              className="rounded-full my-2"
             >
               <Plus className="w-4 h-4 mr-1" />
               Create MTB
@@ -57,18 +57,20 @@ const MTBsList = () => {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {displayedMTBs.map(mtb => (
-            <MTBCard key={mtb.id} mtb={mtb} />
-          ))}
-        </div>
-
-        {displayedMTBs.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            No {activeTab === 'my' ? 'owned' : 'enrolled'} MTBs found
+      <main className="fixed top-[calc(3rem+2.75rem)] left-0 right-0 bottom-0 overflow-y-auto scrollbar-hide overscroll-none">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {displayedMTBs.map(mtb => (
+              <MTBCard key={mtb.id} mtb={mtb} />
+            ))}
           </div>
-        )}
+
+          {displayedMTBs.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              No {activeTab === 'my' ? 'owned' : 'enrolled'} MTBs found
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Create MTB Modal */}

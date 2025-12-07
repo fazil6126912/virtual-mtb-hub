@@ -29,7 +29,7 @@ const Upload = () => {
     <div className="min-h-screen bg-muted">
       <Header />
       
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8 overflow-y-auto overscroll-y-none h-[calc(100vh-3rem)]">
         <div className="vmtb-card p-8 animate-fade-in">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">

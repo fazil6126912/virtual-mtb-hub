@@ -419,7 +419,9 @@ const MTBDetail = () => {
         </div>
 
         <main className="flex-1 overflow-hidden w-full">
-          {renderTabContent()}
+          <div className="h-full overflow-y-auto overscroll-y-none">
+            {renderTabContent()}
+          </div>
         </main>
 
         {/* Add Expert Modal */}

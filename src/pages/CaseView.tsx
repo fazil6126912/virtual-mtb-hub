@@ -237,7 +237,7 @@ const CaseView = () => {
         </div>
       </div>
 
-      <main className="w-full">
+      <main className="w-full overflow-y-auto overscroll-y-none">
         {renderTabContent()}
       </main>
     </div>

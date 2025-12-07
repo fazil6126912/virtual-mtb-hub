@@ -19,7 +19,7 @@ const CasesList = () => {
       <Header />
       
       <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+        <div className="flex-1 overflow-y-auto overscroll-y-none max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
           <CaseTable 
             cases={sortedCases} 
             title="My Cases" 
