@@ -83,7 +83,7 @@ const UploadReview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted flex flex-col">
+    <div className="h-screen bg-muted flex flex-col overflow-hidden">
       <Header />
       
       {/* Hidden file input */}
@@ -96,18 +96,18 @@ const UploadReview = () => {
         className="hidden"
       />
 
-      {/* Main content - scrollable area */}
-      <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
-        <div className="vmtb-card p-6 md:p-8 animate-fade-in">
-          {/* Header row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <h2 className="text-xl font-semibold text-foreground">
+      {/* Main content - fixed layout */}
+      <main className="flex-1 flex flex-col overflow-hidden px-4 py-4">
+        <div className="vmtb-card p-4 md:p-6 animate-fade-in flex flex-col flex-1 overflow-hidden">
+          {/* Header row - fixed */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 flex-shrink-0">
+            <h2 className="text-lg font-semibold text-foreground">
               Uploaded Files ({state.uploadedFiles.length})
             </h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleUploadClick}
-                className="vmtb-btn-primary flex items-center gap-2 px-4 py-2"
+                className="vmtb-btn-primary flex items-center gap-2 px-3 py-1.5 text-sm"
                 aria-label="Upload File"
               >
                 <Upload className="w-4 h-4" />
@@ -116,7 +116,7 @@ const UploadReview = () => {
               <button
                 onClick={() => setShowConfirmRemove(true)}
                 disabled={state.uploadedFiles.length === 0}
-                className="vmtb-btn-outline flex items-center gap-2 px-4 py-2 text-destructive border-destructive hover:bg-destructive/10 disabled:opacity-50"
+                className="vmtb-btn-outline flex items-center gap-2 px-3 py-1.5 text-sm text-destructive border-destructive hover:bg-destructive/10 disabled:opacity-50"
                 aria-label="Remove All"
               >
                 <Trash2 className="w-4 h-4" />
@@ -125,8 +125,8 @@ const UploadReview = () => {
             </div>
           </div>
 
-          {/* File List */}
-          <div className="space-y-3">
+          {/* File List - scrollable only this area */}
+          <div className="flex-1 overflow-y-auto hide-scrollbar space-y-2">
             {state.uploadedFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No files uploaded yet. Use the button above to upload files.
@@ -145,12 +145,12 @@ const UploadReview = () => {
         </div>
       </main>
 
-      {/* Fixed footer with navigation buttons */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-background border-t border-border px-4 py-4 z-40">
+      {/* Compact fixed footer */}
+      <footer className="flex-shrink-0 bg-background border-t border-border px-4 py-2 z-40">
         <div className="flex justify-between max-w-7xl mx-auto">
           <button
             onClick={handleBack}
-            className="vmtb-btn-outline flex items-center gap-2"
+            className="vmtb-btn-outline flex items-center gap-1.5 px-3 py-1.5 text-sm"
             aria-label="Back"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -159,7 +159,7 @@ const UploadReview = () => {
           <button
             onClick={handleNext}
             disabled={state.uploadedFiles.length === 0}
-            className="vmtb-btn-primary px-8"
+            className="vmtb-btn-primary px-6 py-1.5 text-sm"
             aria-label="Next"
           >
             Next
