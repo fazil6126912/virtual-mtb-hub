@@ -9,11 +9,7 @@ import { UploadedFile, generateMockExtractedData } from '@/lib/storage';
 import { toast } from 'sonner';
 
 /**
- * UploadReview page with restructured layout:
- * - Top row: Title + Upload File / Remove All buttons
- * - File list with scroll
- * - Dropzone below file list
- * - Back/Next buttons outside card
+ * UploadReview page with fixed footer for navigation buttons
  */
 const UploadReview = () => {
   const navigate = useNavigate();
@@ -35,7 +31,6 @@ const UploadReview = () => {
     if (!files) return;
 
     const acceptedTypes = ['application/pdf', 'text/plain', 'image/png', 'image/jpeg', 'image/jpg'];
-    const validFiles: UploadedFile[] = [];
 
     Array.from(files).forEach(file => {
       if (acceptedTypes.includes(file.type)) {
@@ -55,7 +50,6 @@ const UploadReview = () => {
       }
     });
 
-    // Reset input
     e.target.value = '';
   };
 
@@ -71,7 +65,6 @@ const UploadReview = () => {
       return;
     }
 
-    // Generate mock extracted data for each file
     state.uploadedFiles.forEach(file => {
       const extractedData = generateMockExtractedData(file.fileCategory);
       updateFileExtractedData(file.id, extractedData);
@@ -90,22 +83,23 @@ const UploadReview = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-muted flex flex-col">
       <Header />
       
-      <main className="w-full px-4 py-8">
-        {/* Hidden file input for Upload File button */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept=".pdf,.txt,.png,.jpg,.jpeg"
-          onChange={handleFileInputChange}
-          className="hidden"
-        />
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept=".pdf,.txt,.png,.jpg,.jpeg"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
 
-        <div className="vmtb-card p-6 md:p-8 animate-fade-in max-h-[75vh] flex flex-col">
-          {/* Header row with title and action buttons */}
+      {/* Main content - scrollable area */}
+      <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
+        <div className="vmtb-card p-6 md:p-8 animate-fade-in">
+          {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <h2 className="text-xl font-semibold text-foreground">
               Uploaded Files ({state.uploadedFiles.length})
@@ -131,11 +125,11 @@ const UploadReview = () => {
             </div>
           </div>
 
-          {/* File List - scrollable */}
-          <div className="flex-1 overflow-y-auto space-y-3 mb-6 min-h-0">
+          {/* File List */}
+          <div className="space-y-3">
             {state.uploadedFiles.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No files uploaded yet. Use the button above or drag & drop below.
+                No files uploaded yet. Use the button above to upload files.
               </div>
             ) : (
               state.uploadedFiles.map(file => (
@@ -149,9 +143,11 @@ const UploadReview = () => {
             )}
           </div>
         </div>
+      </main>
 
-        {/* Navigation buttons outside card */}
-        <div className="flex justify-between mt-6">
+      {/* Fixed footer with navigation buttons */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-background border-t border-border px-4 py-4 z-40">
+        <div className="flex justify-between max-w-7xl mx-auto">
           <button
             onClick={handleBack}
             className="vmtb-btn-outline flex items-center gap-2"
@@ -169,7 +165,7 @@ const UploadReview = () => {
             Next
           </button>
         </div>
-      </main>
+      </footer>
 
       {/* Confirm Remove All Modal */}
       <ConfirmModal

@@ -17,12 +17,13 @@ interface ConfirmModalProps {
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
+  onCancel?: () => void;
   destructive?: boolean;
 }
 
 /**
  * ConfirmModal provides a reusable confirmation dialog.
- * Used for destructive actions like Remove All files.
+ * Used for destructive actions and confirmation prompts.
  */
 const ConfirmModal = ({
   open,
@@ -32,8 +33,16 @@ const ConfirmModal = ({
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   onConfirm,
+  onCancel,
   destructive = false,
 }: ConfirmModalProps) => {
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    }
+    onOpenChange(false);
+  };
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -42,7 +51,7 @@ const ConfirmModal = ({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel onClick={handleCancel}>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className={destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}

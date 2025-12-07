@@ -13,7 +13,6 @@ import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import UploadReview from "./pages/UploadReview";
 import FilePreview from "./pages/FilePreview";
-import CaseSummary from "./pages/CaseSummary";
 import CasesList from "./pages/CasesList";
 import CaseView from "./pages/CaseView";
 import MTBsList from "./pages/MTBsList";
@@ -72,7 +71,6 @@ const AppRoutes = () => {
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       <Route path="/upload/review" element={<ProtectedRoute><UploadReview /></ProtectedRoute>} />
       <Route path="/upload/preview/:fileIndex" element={<ProtectedRoute><FilePreview /></ProtectedRoute>} />
-      <Route path="/case-summary" element={<ProtectedRoute><CaseSummary /></ProtectedRoute>} />
       <Route path="/cases" element={<ProtectedRoute><CasesList /></ProtectedRoute>} />
       <Route path="/cases/:id" element={<ProtectedRoute><CaseView /></ProtectedRoute>} />
       <Route path="/mtbs" element={<ProtectedRoute><MTBsList /></ProtectedRoute>} />

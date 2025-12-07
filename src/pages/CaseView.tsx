@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Users, Image, FileText } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import Header from '@/components/Header';
 import TabBar from '@/components/TabBar';
 import ZoomablePreview from '@/components/ZoomablePreview';
@@ -9,6 +9,7 @@ import ChatBox from '@/components/ChatBox';
 import GroupChat from '@/components/GroupChat';
 import { useApp } from '@/contexts/AppContext';
 import { Expert, UploadedFile } from '@/lib/storage';
+import { toast } from 'sonner';
 
 const tabs = [
   { id: 'profile', label: 'Profile' },
@@ -19,10 +20,10 @@ const tabs = [
 
 /**
  * CaseView page with updated layout:
- * - Profile: Shows only Name, Age, Sex, Cancer Type (no clinical summary)
- * - Reports: Left list, right image + JSON (split or toggled on mobile)
+ * - Profile: Shows Name, Age, Sex, Cancer Type with download buttons
+ * - Reports: Left list, right full-size preview only (no JSON panel)
  * - Experts: Group chat default, private chat when expert selected
- * - Full-width layout throughout
+ * - Compact navbar heights
  */
 const CaseView = () => {
   const { id } = useParams();
@@ -32,7 +33,6 @@ const CaseView = () => {
   const [selectedReport, setSelectedReport] = useState<UploadedFile | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [chatMode, setChatMode] = useState<'group' | 'private'>('group');
-  const [mobileReportView, setMobileReportView] = useState<'image' | 'json'>('image');
 
   const caseData = state.cases.find(c => c.id === id);
 
@@ -41,7 +41,6 @@ const CaseView = () => {
     return null;
   }
 
-  // Get group chat messages
   const groupChatKey = `${caseData.id}-group`;
   const groupMessages = state.chats[groupChatKey] || [];
 
@@ -59,19 +58,38 @@ const CaseView = () => {
     sendGroupMessage(caseData.id, content);
   };
 
-  // Get JSON for selected report
-  const getReportJson = () => {
-    if (!selectedReport?.extractedData) return '{}';
-    return JSON.stringify(selectedReport.extractedData, null, 2);
+  const handleDownloadReport = () => {
+    toast.info('Patient report download coming soon');
+  };
+
+  const handleDownloadPresentation = () => {
+    toast.info('Patient presentation download coming soon');
   };
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'profile':
-        // Profile shows ONLY Name, Age, Sex, Cancer Type - no clinical summary
         return (
           <div className="p-4 md:p-6 animate-fade-in">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Patient Profile</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Patient Profile</h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadReport}
+                  className="vmtb-btn-outline flex items-center gap-2 px-3 py-1.5 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Report
+                </button>
+                <button
+                  onClick={handleDownloadPresentation}
+                  className="vmtb-btn-outline flex items-center gap-2 px-3 py-1.5 text-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Presentation
+                </button>
+              </div>
+            </div>
             <div className="vmtb-card p-6">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
@@ -96,10 +114,9 @@ const CaseView = () => {
         );
 
       case 'reports':
-        // Two-column layout: Left list, Right preview + JSON
         return (
-          <div className="flex flex-col md:flex-row h-[calc(100vh-12rem)] animate-fade-in">
-            {/* Reports List - narrow, sticky */}
+          <div className="flex flex-col md:flex-row h-[calc(100vh-8rem)] animate-fade-in">
+            {/* Reports List - narrow sidebar */}
             <div className="w-full md:w-48 lg:w-56 border-b md:border-b-0 md:border-r border-border p-3 overflow-y-auto hide-scrollbar flex-shrink-0">
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Reports</h3>
               {caseData.files.map((file, index) => (
@@ -118,58 +135,21 @@ const CaseView = () => {
               ))}
             </div>
 
-            {/* Preview + JSON Area */}
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              {/* Mobile Toggle */}
-              <div className="md:hidden flex border-b border-border">
-                <button
-                  onClick={() => setMobileReportView('image')}
-                  className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-                    mobileReportView === 'image' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  <Image className="w-4 h-4" />
-                  Preview
-                </button>
-                <button
-                  onClick={() => setMobileReportView('json')}
-                  className={`flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 ${
-                    mobileReportView === 'json' ? 'bg-primary/10 text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  JSON
-                </button>
-              </div>
-
-              {/* Image Preview */}
-              <div className={`flex-1 p-4 overflow-hidden ${mobileReportView !== 'image' ? 'hidden md:block' : ''}`}>
-                <div className="h-full border border-border rounded-lg overflow-hidden hide-scrollbar">
-                  <ZoomablePreview file={selectedReport} />
-                </div>
-              </div>
-
-              {/* JSON Panel */}
-              <div className={`flex-1 p-4 border-t md:border-t-0 md:border-l border-border overflow-hidden ${mobileReportView !== 'json' ? 'hidden md:block' : ''}`}>
-                <h3 className="text-sm font-medium text-foreground mb-2">Digitized JSON</h3>
-                <textarea
-                  value={getReportJson()}
-                  readOnly
-                  className="w-full h-[calc(100%-2rem)] vmtb-input font-mono text-sm resize-none"
-                  placeholder="Select a report to view extracted data..."
-                />
+            {/* Full-size Preview Only */}
+            <div className="flex-1 p-4 overflow-hidden">
+              <div className="h-full border border-border rounded-lg overflow-hidden hide-scrollbar">
+                <ZoomablePreview file={selectedReport} />
               </div>
             </div>
           </div>
         );
 
       case 'experts':
-        // Group chat default, private chat when expert selected
         return (
-          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-10rem)]">
+          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-8rem)]">
             <div className="flex-1 overflow-hidden flex flex-col">
               <div className="flex gap-6 flex-1 min-h-0">
-                {/* Experts List - Left Column */}
+                {/* Experts List */}
                 <div className="w-64 lg:w-72 border-r border-border overflow-y-auto hide-scrollbar pr-4">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-foreground">Experts</h3>
@@ -190,7 +170,7 @@ const CaseView = () => {
                   />
                 </div>
 
-                {/* Chat Area - Right Column */}
+                {/* Chat Area */}
                 <div className="flex-1 min-w-0">
                   {chatMode === 'group' ? (
                     <GroupChat
@@ -208,7 +188,6 @@ const CaseView = () => {
                 </div>
               </div>
 
-              {/* Disclaimer at bottom */}
               <div className="mt-4 pt-4 border-t border-border" role="note">
                 <p className="text-xs text-muted-foreground">
                   If you would like to add experts to this case, please contact the case originator.
@@ -221,7 +200,7 @@ const CaseView = () => {
       case 'treatment':
         return (
           <div className="p-4 md:p-6 animate-fade-in">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Treatment Plan</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Treatment Plan</h2>
             <div className="vmtb-card p-6">
               <p className="text-muted-foreground mb-4">
                 Treatment plan will be added after expert consultation.
@@ -243,15 +222,16 @@ const CaseView = () => {
     <div className="min-h-screen bg-muted">
       <Header />
       
+      {/* Compact Tab Bar */}
       <div className="bg-background border-b border-border">
         <div className="w-full px-4">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex items-center justify-between py-2">
             <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
             <button
               onClick={() => navigate('/cases')}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              className="p-1.5 hover:bg-muted rounded-lg transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+              <ArrowLeft className="w-4 h-4 text-muted-foreground" />
             </button>
           </div>
         </div>
