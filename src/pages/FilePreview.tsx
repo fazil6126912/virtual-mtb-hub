@@ -98,32 +98,27 @@ const FilePreview = () => {
     <div className="h-screen bg-muted flex flex-col overflow-hidden">
       <Header />
       
-      {/* Compact File Navigation Header */}
-      <div className="bg-background border-b border-border px-4 py-2 flex-shrink-0">
-        <div className="flex items-center justify-between">
+      {/* Compact Single-Row File Navigation Header */}
+      <div className="bg-background border-b border-border px-3 py-1.5 flex-shrink-0">
+        <div className="flex items-center justify-between gap-2">
           {/* Left: Previous Button */}
           <button
             onClick={handlePrevious}
             disabled={isFirstFile}
-            className="vmtb-btn-outline flex items-center gap-1 px-3 py-1.5 text-sm disabled:opacity-50"
+            className="vmtb-btn-outline flex items-center gap-1 px-2.5 py-1 text-xs disabled:opacity-50 flex-shrink-0"
             aria-label="Previous file"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="w-3.5 h-3.5" />
             Previous
           </button>
 
-          {/* Center: File Info */}
-          <div className="flex flex-col items-center">
-            <span className="text-sm font-medium text-foreground truncate max-w-[200px] md:max-w-[300px]">
-              {currentFile.name}
-            </span>
-            
-            {/* File Dropdown */}
+          {/* Center: File Name with Dropdown */}
+          <div className="flex items-center gap-2 min-w-0 flex-1 justify-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-0.5">
-                  File {currentIndex + 1} of {totalFiles}
-                  <ChevronDown className="w-3 h-3" />
+                <button className="flex items-center gap-1 text-sm font-medium text-foreground hover:text-primary truncate max-w-[180px] md:max-w-[280px]">
+                  {currentFile.name}
+                  <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
@@ -140,7 +135,7 @@ const FilePreview = () => {
             </DropdownMenu>
 
             {/* File Type Tag */}
-            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium mt-1">
+            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium flex-shrink-0">
               {currentFile.fileCategory}
             </span>
           </div>
@@ -148,11 +143,11 @@ const FilePreview = () => {
           {/* Right: Next/Submit Button */}
           <button 
             onClick={handleNext} 
-            className="vmtb-btn-primary flex items-center gap-1 px-3 py-1.5 text-sm"
+            className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
             aria-label={isLastFile ? 'Submit' : 'Next file'}
           >
             {isLastFile ? 'Submit' : 'Next'}
-            {!isLastFile && <ArrowRight className="w-4 h-4" />}
+            {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
