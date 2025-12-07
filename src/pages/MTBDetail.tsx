@@ -489,6 +489,7 @@ const MTBDetail = () => {
                       <thead>
                         <tr className="border-b border-border">
                           <th className="text-left py-3 px-4 text-muted-foreground font-medium">Case Name</th>
+                          <th className="text-left py-3 px-4 text-muted-foreground font-medium">Shared By</th>
                           <th className="text-left py-3 px-4 text-muted-foreground font-medium">Patient Name</th>
                           <th className="text-left py-3 px-4 text-muted-foreground font-medium">Patient Info</th>
                           <th className="text-left py-3 px-4 text-muted-foreground font-medium">Cancer Type</th>
@@ -501,6 +502,7 @@ const MTBDetail = () => {
                         {sharedCases.map(caseItem => (
                           <tr key={caseItem.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                             <td className="py-4 px-4 text-foreground font-medium">{caseItem.caseName}</td>
+                            <td className="py-4 px-4 text-foreground text-sm">{state.users.find(u => u.id === caseItem.ownerId)?.name || 'Unknown'}</td>
                             <td className="py-4 px-4 text-foreground">{caseItem.patient.name}</td>
                             <td className="py-4 px-4 text-foreground">
                               {caseItem.patient.age}y, {caseItem.patient.sex.charAt(0).toUpperCase()}
@@ -603,8 +605,8 @@ const MTBDetail = () => {
         
         {/* Compact Single-Row Header */}
         <div className="bg-background border-b border-border flex-shrink-0 sticky top-12 z-30">
-          <div className="w-full px-4 py-2">
-            <div className="flex items-center justify-between gap-4 h-14">
+          <div className="w-full px-4 py-1.5">
+            <div className="flex items-center justify-between gap-4 h-12">
               {/* Left: DP + Name + Chevron + Section */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 {/* DP */}
