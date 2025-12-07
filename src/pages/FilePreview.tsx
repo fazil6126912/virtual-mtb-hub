@@ -1,23 +1,31 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
 import Header from '@/components/Header';
 import ZoomablePreview from '@/components/ZoomablePreview';
+import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
+import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 /**
- * FilePreview page with two-panel layout:
- * - Left: Zoomable/pannable document preview
- * - Right: Single large JSON textarea for extracted data
- * 
- * Edits are saved when navigating between files.
- * Scrollbars hidden on preview pane.
+ * FilePreview page with redesigned compact header:
+ * - Left: Previous button
+ * - Center: File name, dropdown for file selection, file type tag
+ * - Right: Next/Submit button
+ * - Two-panel layout with fixed height image container
  */
 const FilePreview = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
-  const { state, updateFileExtractedData } = useApp();
+  const { state, updateFileExtractedData, createCase } = useApp();
   const [jsonText, setJsonText] = useState('');
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -25,7 +33,6 @@ const FilePreview = () => {
   const isLastFile = currentIndex === totalFiles - 1;
   const isFirstFile = currentIndex === 0;
 
-  // Convert extracted data to JSON string for editing
   useEffect(() => {
     if (currentFile?.extractedData) {
       setJsonText(JSON.stringify(currentFile.extractedData, null, 2));
@@ -40,7 +47,6 @@ const FilePreview = () => {
         const parsed = JSON.parse(jsonText);
         updateFileExtractedData(currentFile.id, parsed);
       } catch {
-        // If JSON is invalid, save as a single field
         updateFileExtractedData(currentFile.id, { content: jsonText });
       }
     }
@@ -50,7 +56,7 @@ const FilePreview = () => {
     saveCurrentFile();
     
     if (isLastFile) {
-      navigate('/case-summary');
+      setShowSubmitModal(true);
     } else {
       navigate(`/upload/preview/${currentIndex + 1}`);
     }
@@ -63,78 +69,126 @@ const FilePreview = () => {
     }
   };
 
+  const handleFileSelect = (index: number) => {
+    saveCurrentFile();
+    navigate(`/upload/preview/${index}`);
+  };
+
+  const handleCreateCase = () => {
+    const newCase = createCase();
+    if (newCase) {
+      toast.success('Case created successfully!');
+      setShowSubmitModal(false);
+      navigate(`/cases/${newCase.id}`);
+    } else {
+      toast.error('Failed to create case');
+    }
+  };
+
+  const handleGoBack = () => {
+    setShowSubmitModal(false);
+  };
+
   if (!state.currentPatient || !currentFile) {
     navigate('/home');
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-muted flex flex-col">
+    <div className="h-screen bg-muted flex flex-col overflow-hidden">
       <Header />
       
-      {/* File Header */}
-      <div className="bg-background border-b border-border px-4 py-4 flex-shrink-0">
+      {/* Compact File Navigation Header */}
+      <div className="bg-background border-b border-border px-4 py-2 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">{currentFile.name}</h2>
-            <p className="text-sm text-muted-foreground">
-              file {currentIndex + 1} out of {totalFiles}
-            </p>
+          {/* Left: Previous Button */}
+          <button
+            onClick={handlePrevious}
+            disabled={isFirstFile}
+            className="vmtb-btn-outline flex items-center gap-1 px-3 py-1.5 text-sm disabled:opacity-50"
+            aria-label="Previous file"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Previous
+          </button>
+
+          {/* Center: File Info */}
+          <div className="flex flex-col items-center">
+            <span className="text-sm font-medium text-foreground truncate max-w-[200px] md:max-w-[300px]">
+              {currentFile.name}
+            </span>
+            
+            {/* File Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-0.5">
+                  File {currentIndex + 1} of {totalFiles}
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
+                {state.uploadedFiles.map((file, index) => (
+                  <DropdownMenuItem
+                    key={file.id}
+                    onClick={() => handleFileSelect(index)}
+                    className={index === currentIndex ? 'bg-primary/10' : ''}
+                  >
+                    <span className="truncate max-w-[200px]">{file.name}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* File Type Tag */}
+            <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium mt-1">
+              {currentFile.fileCategory}
+            </span>
           </div>
-          <span className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium">
-            {currentFile.fileCategory}
-          </span>
+
+          {/* Right: Next/Submit Button */}
+          <button 
+            onClick={handleNext} 
+            className="vmtb-btn-primary flex items-center gap-1 px-3 py-1.5 text-sm"
+            aria-label={isLastFile ? 'Submit' : 'Next file'}
+          >
+            {isLastFile ? 'Submit' : 'Next'}
+            {!isLastFile && <ArrowRight className="w-4 h-4" />}
+          </button>
         </div>
       </div>
 
-      {/* Two Panel Layout - Full height minus header */}
-      <main className="flex-1 flex flex-col md:flex-row overflow-hidden">
-        {/* Left Panel - Original Document with zoom/pan */}
-        <div className="w-full md:w-1/2 h-[40vh] md:h-auto border-b md:border-b-0 md:border-r border-border p-4 overflow-hidden">
-          <div className="h-full rounded-lg overflow-hidden hide-scrollbar">
+      {/* Two Panel Layout - fills remaining height */}
+      <main className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
+        {/* Left Panel - Document Preview with fixed height container */}
+        <div className="w-full md:w-1/2 h-[40vh] md:h-full border-b md:border-b-0 md:border-r border-border p-3 overflow-hidden">
+          <div className="h-full rounded-lg overflow-auto hide-scrollbar">
             <ZoomablePreview file={currentFile} />
           </div>
         </div>
 
-        {/* Right Panel - Extracted JSON */}
-        <div className="w-full md:w-1/2 flex flex-col p-4 overflow-hidden">
-          <div className="flex-shrink-0 mb-4">
-            <h3 className="text-lg font-semibold text-foreground">Digitized JSON</h3>
-            <p className="text-sm text-muted-foreground">
-              Review and edit the extracted information. Changes are saved when navigating.
-            </p>
-          </div>
-
+        {/* Right Panel - JSON Editor Only */}
+        <div className="w-full md:w-1/2 flex flex-col p-3 overflow-hidden flex-1 md:flex-initial md:h-full">
           <textarea
             value={jsonText}
             onChange={e => setJsonText(e.target.value)}
-            className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[200px]"
+            className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[150px]"
             placeholder="Extracted JSON data..."
             spellCheck={false}
           />
-
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-4 pt-4 border-t border-border flex-shrink-0">
-            <button
-              onClick={handlePrevious}
-              disabled={isFirstFile}
-              className="vmtb-btn-outline flex items-center gap-2 disabled:opacity-50"
-              aria-label="Previous file"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Previous
-            </button>
-            <button 
-              onClick={handleNext} 
-              className="vmtb-btn-primary flex items-center gap-2"
-              aria-label={isLastFile ? 'Submit' : 'Next file'}
-            >
-              {isLastFile ? 'Submit' : 'Next'}
-              {!isLastFile && <ArrowRight className="w-4 h-4" />}
-            </button>
-          </div>
         </div>
       </main>
+
+      {/* Submit Confirmation Modal */}
+      <ConfirmModal
+        open={showSubmitModal}
+        onOpenChange={setShowSubmitModal}
+        title="Create Case"
+        description="Are you ready to create this case? If you need to make changes, you can go back. Patient report and presentation will be generated automatically and are available from the Patient Profile."
+        confirmLabel="Create Case"
+        cancelLabel="Go Back"
+        onConfirm={handleCreateCase}
+        onCancel={handleGoBack}
+      />
     </div>
   );
 };

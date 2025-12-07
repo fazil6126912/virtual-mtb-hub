@@ -9,14 +9,17 @@ interface TabBarProps {
   onTabChange: (tabId: string) => void;
 }
 
+/**
+ * Compact TabBar with reduced height
+ */
 const TabBar = ({ tabs, activeTab, onTabChange }: TabBarProps) => {
   return (
-    <div className="flex items-center gap-6 border-b border-border">
+    <div className="flex items-center gap-4">
       {tabs.map(tab => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`vmtb-tab pb-3 ${activeTab === tab.id ? 'vmtb-tab-active' : ''}`}
+          className={`vmtb-tab text-sm pb-2 ${activeTab === tab.id ? 'vmtb-tab-active' : ''}`}
         >
           {tab.label}
         </button>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
-import { User, LogOut, Edit, Mail, Bell } from 'lucide-react';
+import { LogOut, Edit, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -15,10 +15,7 @@ import EditProfileModal from './EditProfileModal';
 import InvitationsModal, { Invitation } from './InvitationsModal';
 
 /**
- * Header component with full-width layout.
- * Logo flush-left, navigation and user menu flush-right.
- * Includes Edit Profile, Invitations, and Logout options.
- * Shows notification badge for unread invitations.
+ * Compact Header component with reduced height
  */
 const Header = () => {
   const location = useLocation();
@@ -30,7 +27,6 @@ const Header = () => {
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
-  // Get pending invitations for current user
   const userInvitations = state.invitations.filter(
     inv => inv.invited_user_email === profile?.email && inv.status === 'pending'
   );
@@ -70,26 +66,25 @@ const Header = () => {
   return (
     <>
       <header className="bg-background border-b border-border sticky top-0 z-50">
-        {/* Full-width container with small gutters */}
         <div className="w-full px-4">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo - flush left */}
+          <div className="flex items-center justify-between h-12">
+            {/* Logo */}
             <Link to="/home" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center overflow-hidden">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-                  <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-                  <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center overflow-hidden">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
+                  <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
+                  <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-sky-300 rounded-full opacity-80" />
                 </div>
               </div>
             </Link>
 
-            {/* Navigation - flush right */}
-            <nav className="flex items-center gap-6 md:gap-8">
+            {/* Navigation */}
+            <nav className="flex items-center gap-4 md:gap-6">
               {navItems.map(item => (
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`vmtb-tab ${isActive(item.path) ? 'vmtb-tab-active' : ''}`}
+                  className={`vmtb-tab text-sm ${isActive(item.path) ? 'vmtb-tab-active' : ''}`}
                 >
                   {item.label}
                 </Link>
@@ -98,7 +93,7 @@ const Header = () => {
               {/* User Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="relative w-10 h-10 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
+                  <button className="relative w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-primary transition-all">
                     {profile?.avatar_url ? (
                       <img
                         src={profile.avatar_url}
@@ -107,15 +102,14 @@ const Header = () => {
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-                          <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-                          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
+                          <div className="absolute bottom-0 left-0 right-0 h-3 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
+                          <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-2 h-2 bg-sky-300 rounded-full opacity-80" />
                         </div>
                       </div>
                     )}
-                    {/* Notification badge on profile icon */}
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center font-medium">
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center font-medium">
                         {unreadCount}
                       </span>
                     )}
@@ -153,13 +147,11 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Edit Profile Modal */}
       <EditProfileModal
         open={editProfileOpen}
         onOpenChange={setEditProfileOpen}
       />
 
-      {/* Invitations Modal */}
       <InvitationsModal
         open={invitationsOpen}
         onOpenChange={setInvitationsOpen}
