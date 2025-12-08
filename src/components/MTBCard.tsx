@@ -43,7 +43,9 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-muted to-muted/50 p-4 relative flex-shrink-0">
         <div className="pr-16">
-          <h3 className="font-semibold text-foreground">{mtb.name}</h3>
+          <h3 className={`font-semibold text-foreground ${mtb.name.length > 40 ? 'truncate' : ''}`}>
+            {mtb.name.length > 40 ? mtb.name.substring(0, 37) + '...' : mtb.name}
+          </h3>
           <p className="text-sm text-muted-foreground">{mtb.doctorName}</p>
         </div>
         {/* Avatar - Display actual MTB image if available */}

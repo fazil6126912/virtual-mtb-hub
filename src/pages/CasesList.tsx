@@ -15,18 +15,16 @@ const CasesList = () => {
   });
 
   return (
-    <div className="min-h-screen bg-muted flex flex-col">
+    <div className="h-screen bg-muted flex flex-col overflow-hidden">
       <Header />
       
       <main className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-y-auto overscroll-y-none max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
-          <CaseTable 
-            cases={sortedCases} 
-            title="My Cases" 
-            showBackButton
-            onBack={() => navigate(-1)}
-          />
-        </div>
+        <CaseTable 
+          cases={sortedCases} 
+          title="My Cases" 
+          showBackButton
+          onBack={() => navigate(-1)}
+        />
       </main>
     </div>
   );

@@ -26,9 +26,11 @@ interface AppContextType {
   addUploadedFile: (file: UploadedFile) => void;
   removeUploadedFile: (id: string) => void;
   updateFileCategory: (id: string, category: string) => void;
+  updateFileName: (id: string, name: string) => void;
   updateFileExtractedData: (id: string, data: Record<string, string>) => void;
   createCase: (clinicalSummary?: string) => Case | null;
   deleteCase: (caseId: string) => void;
+  loadCaseForEditing: (caseId: string) => boolean;
   sendMessage: (caseId: string, expertId: string, content: string) => void;
   sendGroupMessage: (caseId: string, content: string) => void;
   clearUploadedFiles: () => void;
@@ -144,6 +146,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const updateFileName = (id: string, name: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === id ? { ...f, name } : f
+      ),
+    }));
+  };
+
   const updateFileExtractedData = (id: string, data: Record<string, string>) => {
     setState(prev => ({
       ...prev,
@@ -223,6 +234,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const clearUploadedFiles = () => {
     setState(prev => ({ ...prev, uploadedFiles: [] }));
+  };
+
+  const loadCaseForEditing = (caseId: string): boolean => {
+    const caseToEdit = state.cases.find(c => c.id === caseId);
+    if (!caseToEdit) return false;
+
+    // Load case's patient data and files for editing
+    setState(prev => ({
+      ...prev,
+      currentPatient: caseToEdit.patient,
+      uploadedFiles: caseToEdit.files,
+    }));
+
+    return true;
   };
 
   // Send message to group chat (uses 'group' as expertId)
@@ -479,9 +504,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         addUploadedFile,
         removeUploadedFile,
         updateFileCategory,
+        updateFileName,
         updateFileExtractedData,
         createCase,
         deleteCase,
+        loadCaseForEditing,
         sendMessage,
         sendGroupMessage,
         clearUploadedFiles,

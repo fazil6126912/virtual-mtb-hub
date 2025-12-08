@@ -101,15 +101,14 @@ const FilePreview = () => {
       {/* Compact Single-Row File Navigation Header */}
       <div className="bg-background border-b border-border px-3 py-1.5 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
-          {/* Left: Previous Button */}
+          {/* Left: Back to Upload Button */}
           <button
-            onClick={handlePrevious}
-            disabled={isFirstFile}
-            className="vmtb-btn-outline flex items-center gap-1 px-2.5 py-1 text-xs disabled:opacity-50 flex-shrink-0"
-            aria-label="Previous file"
+            onClick={() => navigate('/upload/review')}
+            className="vmtb-btn-outline flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+            aria-label="Back to uploads"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Previous
+            Back to Upload
           </button>
 
           {/* Center: File Name with Dropdown */}
@@ -128,7 +127,7 @@ const FilePreview = () => {
                     onClick={() => handleFileSelect(index)}
                     className={index === currentIndex ? 'bg-primary/10' : ''}
                   >
-                    <span className="truncate max-w-[200px]">{file.name}</span>
+                    <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>{file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}</span>
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -140,15 +139,26 @@ const FilePreview = () => {
             </span>
           </div>
 
-          {/* Right: Next/Submit Button */}
-          <button 
-            onClick={handleNext} 
-            className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-            aria-label={isLastFile ? 'Submit' : 'Next file'}
-          >
-            {isLastFile ? 'Submit' : 'Next'}
-            {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
-          </button>
+          {/* Right: Previous and Next/Submit Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrevious}
+              disabled={isFirstFile}
+              className="vmtb-btn-outline flex items-center gap-1 px-2.5 py-1 text-xs disabled:opacity-50 flex-shrink-0"
+              aria-label="Previous file"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Previous
+            </button>
+            <button 
+              onClick={handleNext} 
+              className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+              aria-label={isLastFile ? 'Submit' : 'Next file'}
+            >
+              {isLastFile ? 'Submit' : 'Next'}
+              {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
+            </button>
+          </div>
         </div>
       </div>
 

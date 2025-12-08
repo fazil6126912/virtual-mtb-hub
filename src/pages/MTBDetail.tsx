@@ -32,7 +32,7 @@ const sections = [
 const MTBDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { state, removeExpertFromMTB, sendInvitations, addCasesToMTB, deleteCase, removeCaseFromMTB } = useApp();
+  const { state, removeExpertFromMTB, sendInvitations, addCasesToMTB, deleteCase, removeCaseFromMTB, loadCaseForEditing } = useApp();
   const [activeSection, setActiveSection] = useState('mycases');
   const [showAddExpert, setShowAddExpert] = useState(false);
   const [showAddCase, setShowAddCase] = useState(false);
@@ -448,7 +448,11 @@ const MTBDetail = () => {
                                   <Eye className="w-4 h-4" />
                                 </button>
                                 <button 
-                                  onClick={() => navigate(`/file-preview/${caseItem.id}`)}
+                                  onClick={() => {
+                                    if (loadCaseForEditing(caseItem.id)) {
+                                      navigate(`/upload/preview/0`);
+                                    }
+                                  }}
                                   className="p-2 rounded-lg hover:bg-blue-500/10 text-blue-500 transition-colors"
                                   title="Edit case"
                                 >
@@ -621,8 +625,8 @@ const MTBDetail = () => {
                 </div>
 
                 {/* MTB Name */}
-                <span className="font-semibold text-foreground text-sm truncate max-w-[120px]" title={mtb.name}>
-                  {mtb.name}
+                <span className={`font-semibold text-foreground text-sm ${mtb.name.length > 40 ? 'truncate max-w-[120px]' : ''}`} title={mtb.name}>
+                  {mtb.name.length > 40 ? mtb.name.substring(0, 37) + '...' : mtb.name}
                 </span>
 
                 {/* Chevron */}

@@ -13,8 +13,9 @@ import { toast } from 'sonner';
  */
 const UploadReview = () => {
   const navigate = useNavigate();
-  const { state, addUploadedFile, removeUploadedFile, updateFileCategory, updateFileExtractedData, clearUploadedFiles } = useApp();
+  const { state, addUploadedFile, removeUploadedFile, updateFileCategory, updateFileExtractedData, clearUploadedFiles, updateFileName } = useApp();
   const [showConfirmRemove, setShowConfirmRemove] = useState(false);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFilesAdded = (files: UploadedFile[]) => {
@@ -136,8 +137,12 @@ const UploadReview = () => {
                 <FileCard
                   key={file.id}
                   file={file}
+                  isEditing={editingFileId === file.id}
+                  onEditStart={() => setEditingFileId(file.id)}
+                  onEditCancel={() => setEditingFileId(null)}
                   onCategoryChange={category => updateFileCategory(file.id, category)}
                   onRemove={() => removeUploadedFile(file.id)}
+                  onNameChange={name => updateFileName?.(file.id, name)}
                 />
               ))
             )}
