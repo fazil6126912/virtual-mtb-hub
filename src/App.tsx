@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Upload from "./pages/Upload";
 import UploadReview from "./pages/UploadReview";
+import Anonymize from "./pages/Anonymize";
 import FilePreview from "./pages/FilePreview";
 import CasesList from "./pages/CasesList";
 import CaseView from "./pages/CaseView";
@@ -70,6 +71,7 @@ const AppRoutes = () => {
       <Route path="/home" element={<ProtectedRoute><Home /></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       <Route path="/upload/review" element={<ProtectedRoute><UploadReview /></ProtectedRoute>} />
+      <Route path="/upload/anonymize/:fileIndex" element={<ProtectedRoute><Anonymize /></ProtectedRoute>} />
       <Route path="/upload/preview/:fileIndex" element={<ProtectedRoute><FilePreview /></ProtectedRoute>} />
       <Route path="/cases" element={<ProtectedRoute><CasesList /></ProtectedRoute>} />
       <Route path="/cases/:id" element={<ProtectedRoute><CaseView /></ProtectedRoute>} />

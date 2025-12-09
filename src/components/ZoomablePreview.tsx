@@ -21,10 +21,13 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
   }
 
   const renderPreview = () => {
+    // Use anonymized image if available, otherwise use original
+    const imageSource = file.anonymizedDataURL || file.dataURL;
+    
     if (file.type.startsWith('image/')) {
       return (
         <img
-          src={file.dataURL}
+          src={imageSource}
           alt={file.name}
           className="max-w-full max-h-full object-contain"
           draggable={false}
