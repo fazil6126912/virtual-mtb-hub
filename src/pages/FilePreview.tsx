@@ -101,14 +101,14 @@ const FilePreview = () => {
       {/* Compact Single-Row File Navigation Header */}
       <div className="bg-background border-b border-border px-3 py-1.5 flex-shrink-0">
         <div className="flex items-center justify-between gap-2">
-          {/* Left: Back to Upload Button */}
+          {/* Left: Back to Anonymize Button */}
           <button
-            onClick={() => navigate('/upload/review')}
+            onClick={() => navigate(`/upload/anonymize/${currentIndex}`)}
             className="vmtb-btn-outline flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-            aria-label="Back to uploads"
+            aria-label="Back to anonymize"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Upload
+            Back to Anonymize
           </button>
 
           {/* Center: File Name with Dropdown */}

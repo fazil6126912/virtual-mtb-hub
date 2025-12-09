@@ -71,7 +71,8 @@ const UploadReview = () => {
       updateFileExtractedData(file.id, extractedData);
     });
 
-    navigate('/upload/preview/0');
+    // Navigate to anonymization page first
+    navigate('/upload/anonymize/0');
   };
 
   const handleBack = () => {

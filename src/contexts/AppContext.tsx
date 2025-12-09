@@ -28,6 +28,7 @@ interface AppContextType {
   updateFileCategory: (id: string, category: string) => void;
   updateFileName: (id: string, name: string) => void;
   updateFileExtractedData: (id: string, data: Record<string, string>) => void;
+  updateAnonymizedImage: (id: string, anonymizedDataURL: string) => void;
   createCase: (clinicalSummary?: string) => Case | null;
   deleteCase: (caseId: string) => void;
   loadCaseForEditing: (caseId: string) => boolean;
@@ -160,6 +161,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...prev,
       uploadedFiles: prev.uploadedFiles.map(f =>
         f.id === id ? { ...f, extractedData: data } : f
+      ),
+    }));
+  };
+
+  const updateAnonymizedImage = (id: string, anonymizedDataURL: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === id ? { ...f, anonymizedDataURL } : f
       ),
     }));
   };
@@ -506,6 +516,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateFileCategory,
         updateFileName,
         updateFileExtractedData,
+        updateAnonymizedImage,
         createCase,
         deleteCase,
         loadCaseForEditing,

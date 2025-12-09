@@ -25,6 +25,7 @@ export interface UploadedFile {
   dataURL: string;
   fileCategory: string;
   extractedData?: Record<string, string>;
+  anonymizedDataURL?: string; // Stores the anonymized version of the image
 }
 
 export interface Case {
