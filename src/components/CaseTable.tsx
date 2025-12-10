@@ -52,9 +52,9 @@ const CaseTable = ({
   };
 
   const handleEdit = (caseItem: Case) => {
-    // Load case for editing and navigate to digitization workflow
+    // Load case for editing and navigate to anonymization workflow
     if (loadCaseForEditing(caseItem.id)) {
-      navigate(`/upload/preview/0`);
+      navigate(`/upload/anonymize/0`);
     }
     onEditCase?.(caseItem.id);
   };

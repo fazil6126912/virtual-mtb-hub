@@ -29,9 +29,12 @@ interface AppContextType {
   updateFileName: (id: string, name: string) => void;
   updateFileExtractedData: (id: string, data: Record<string, string>) => void;
   updateAnonymizedImage: (id: string, anonymizedDataURL: string) => void;
+  updateAnonymizedPDFPages: (id: string, anonymizedPages: string[]) => void;
+  updatePDFPages: (id: string, pdfPages: string[]) => void;
   createCase: (clinicalSummary?: string) => Case | null;
   deleteCase: (caseId: string) => void;
   loadCaseForEditing: (caseId: string) => boolean;
+  modifyCase: () => boolean;
   sendMessage: (caseId: string, expertId: string, content: string) => void;
   sendGroupMessage: (caseId: string, content: string) => void;
   clearUploadedFiles: () => void;
@@ -174,6 +177,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }));
   };
 
+  const updateAnonymizedPDFPages = (id: string, anonymizedPages: string[]) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === id ? { ...f, anonymizedPages } : f
+      ),
+    }));
+  };
+
+  const updatePDFPages = (id: string, pdfPages: string[]) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === id ? { ...f, pdfPages } : f
+      ),
+    }));
+  };
+
   const createCase = (clinicalSummary?: string): Case | null => {
     if (!state.currentPatient || !state.currentPatient.caseName || state.uploadedFiles.length === 0) return null;
 
@@ -255,7 +276,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...prev,
       currentPatient: caseToEdit.patient,
       uploadedFiles: caseToEdit.files,
+      isEditMode: true,
+      editingCaseId: caseId,
+      originalFiles: [...caseToEdit.files],
     }));
+
+    return true;
+  };
+
+  const modifyCase = (): boolean => {
+    if (!state.editingCaseId || !state.isEditMode) return false;
+
+    setState(prev => {
+      const updatedCases = prev.cases.map(c => {
+        if (c.id === prev.editingCaseId) {
+          return {
+            ...c,
+            patient: prev.currentPatient!,
+            files: [...prev.uploadedFiles],
+          };
+        }
+        return c;
+      });
+
+      return {
+        ...prev,
+        cases: updatedCases,
+        isEditMode: false,
+        editingCaseId: null,
+        originalFiles: [],
+        currentPatient: null,
+        uploadedFiles: [],
+      };
+    });
 
     return true;
   };
@@ -517,9 +570,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateFileName,
         updateFileExtractedData,
         updateAnonymizedImage,
+        updateAnonymizedPDFPages,
+        updatePDFPages,
         createCase,
         deleteCase,
         loadCaseForEditing,
+        modifyCase,
         sendMessage,
         sendGroupMessage,
         clearUploadedFiles,

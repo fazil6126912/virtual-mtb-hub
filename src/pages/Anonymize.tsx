@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check, Eraser, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
+import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import {
@@ -12,29 +13,38 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { GlobalWorkerOptions, getDocument } from 'pdfjs-dist';
 
-type Tool = 'rectangle' | 'ellipse' | 'freehand' | null;
-type StrokeSize = 'small' | 'medium' | 'large';
+type Tool = 'rectangle' | 'ellipse' | 'freehand' | 'erase' | null;
 
 interface RedactionShape {
   id: string;
-  type: 'rectangle' | 'ellipse' | 'freehand';
+  type: 'rectangle' | 'ellipse' | 'freehand' | 'erase';
   startX: number;
   startY: number;
   endX: number;
   endY: number;
   points?: { x: number; y: number }[];
   strokeSize?: number;
+  thickness?: number;
+}
+
+interface FileProgress {
+  id: string;
+  name: string;
+  visited: boolean;
 }
 
 /**
  * Anonymize page - allows users to redact sensitive information from documents
  * before digitization. Users can draw rectangles, ellipses, or freehand strokes.
+ * Supports image and PDF anonymization with redaction tools.
  */
 const Anonymize = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
-  const { state, updateAnonymizedImage } = useApp();
+  const { state, updateAnonymizedImage, updateAnonymizedPDFPages } = useApp();
+  const isEditMode = state.isEditMode;
   
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -45,24 +55,141 @@ const Anonymize = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedTool, setSelectedTool] = useState<Tool>(null);
-  const [strokeSize, setStrokeSize] = useState<StrokeSize>('medium');
+  const [brushRadius, setBrushRadius] = useState(16); // Default medium size
+  const [shapeThickness, setShapeThickness] = useState(2); // Default thickness
   const [shapes, setShapes] = useState<RedactionShape[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<RedactionShape | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  
+  // PDF support
+  const [isPDF, setIsPDF] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [currentPdfPageIndex, setCurrentPdfPageIndex] = useState(0);
+  const [totalPdfPages, setTotalPdfPages] = useState(0);
+
+  // Track files that have been edited in this session
+  const [editedFileIds, setEditedFileIds] = useState<Set<string>>(new Set());
+
+  // Visit verification (skip in edit mode for unchanged files)
+  const [progressList, setProgressList] = useState<FileProgress[]>(() => {
+    if (isEditMode) {
+      // In edit mode, mark original files as visited, new files as not visited
+      return state.uploadedFiles.map(file => ({
+        id: file.id,
+        name: file.name,
+        visited: state.originalFiles.some(orig => orig.id === file.id) && !editedFileIds.has(file.id),
+      }));
+    }
+    return state.uploadedFiles.map(file => ({ id: file.id, name: file.name, visited: false }));
+  });
+  const [showUnvisitedModal, setShowUnvisitedModal] = useState(false);
+  const [showIncompleteEditModal, setShowIncompleteEditModal] = useState(false);
+  const [triggerShake, setTriggerShake] = useState(false);
 
   const strokeSizeValues = { small: 8, medium: 16, large: 24 };
 
+  // Mark current document as visited when landing on it (unless edit mode and original file)
+  useEffect(() => {
+    if (isEditMode && state.originalFiles.some(f => f.id === currentFile?.id)) {
+      // Don't require re-visit for unchanged original files
+      return;
+    }
+    setProgressList(prev =>
+      prev.map(p => p.id === currentFile?.id ? { ...p, visited: true } : p)
+    );
+  }, [currentIndex, currentFile?.id, isEditMode]);
+
+  const allDocsVisited = progressList.every(p => p.visited);
+  const unvisitedDocs = progressList.filter(p => !p.visited);
+
+  // Set up PDF.js worker with proper path
+  useEffect(() => {
+    GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.js',
+      import.meta.url
+    ).toString();
+  }, []);
+
+  // Load PDF pages with ArrayBuffer
+  const loadPDFPages = useCallback(async (file: typeof currentFile) => {
+    if (!file || file.type !== 'application/pdf') {
+      setIsPDF(false);
+      return;
+    }
+
+    try {
+      // Convert data URL to ArrayBuffer
+      const response = await fetch(file.dataURL);
+      const buffer = await response.arrayBuffer();
+      
+      // Load PDF with ArrayBuffer instead of data URL
+      const pdf = await getDocument({ data: buffer }).promise;
+      setTotalPdfPages(pdf.numPages);
+      
+      const pages: string[] = [];
+      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+        try {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            await page.render({
+              canvasContext: ctx,
+              viewport,
+            }).promise;
+            pages.push(canvas.toDataURL('image/png'));
+          }
+        } catch (pageError) {
+          console.error(`Error loading PDF page ${i}:`, pageError);
+          // Continue with next page instead of failing
+        }
+      }
+      
+      if (pages.length === 0) {
+        toast.error('Failed to render any PDF pages');
+        setIsPDF(false);
+        return;
+      }
+      
+      setPdfPages(pages);
+      setCurrentPdfPageIndex(0);
+      setIsPDF(true);
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      toast.error('Failed to load PDF file');
+      setIsPDF(false);
+    }
+  }, []);
+
   // Get the image to display (anonymized if available, otherwise original)
   const getDisplayImage = useCallback(() => {
+    if (isPDF && pdfPages.length > 0) {
+      // Check if we have anonymized pages for this PDF
+      if (currentFile?.anonymizedPages && currentFile.anonymizedPages.length > currentPdfPageIndex) {
+        return currentFile.anonymizedPages[currentPdfPageIndex];
+      }
+      return pdfPages[currentPdfPageIndex];
+    }
     return currentFile?.anonymizedDataURL || currentFile?.dataURL;
-  }, [currentFile]);
+  }, [currentFile, isPDF, pdfPages, currentPdfPageIndex]);
 
-  // Load and draw image on canvas
+  // Load and draw image on canvas (or load PDF pages)
   useEffect(() => {
     if (!currentFile || !canvasRef.current) return;
 
+    // Check if this is a PDF
+    if (currentFile.type === 'application/pdf') {
+      loadPDFPages(currentFile);
+      setShapes([]);
+      return;
+    }
+
+    // Handle regular images
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -82,11 +209,72 @@ const Anonymize = () => {
 
     // Reset shapes when file changes
     setShapes([]);
-  }, [currentFile, getDisplayImage]);
+    setIsPDF(false);
+  }, [currentFile, loadPDFPages]);
 
   // Redraw canvas with shapes
   const redrawCanvas = useCallback(() => {
-    if (!canvasRef.current || !imageLoaded) return;
+    if (!canvasRef.current) return;
+
+    // For PDFs, don't redraw here - it's handled by the displayImage effect
+    if (isPDF && pdfPages.length > 0) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw PDF page as image
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+
+        // Draw all shapes on top
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+
+        [...shapes, currentShape].filter(Boolean).forEach(shape => {
+          if (!shape) return;
+          
+          if (shape.type === 'rectangle') {
+            const x = Math.min(shape.startX, shape.endX);
+            const y = Math.min(shape.startY, shape.endY);
+            const width = Math.abs(shape.endX - shape.startX);
+            const height = Math.abs(shape.endY - shape.startY);
+            ctx.lineWidth = shape.thickness || shapeThickness;
+            ctx.fillRect(x, y, width, height);
+            ctx.strokeRect(x, y, width, height);
+          } else if (shape.type === 'ellipse') {
+            const centerX = (shape.startX + shape.endX) / 2;
+            const centerY = (shape.startY + shape.endY) / 2;
+            const radiusX = Math.abs(shape.endX - shape.startX) / 2;
+            const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+            ctx.lineWidth = shape.thickness || shapeThickness;
+            ctx.beginPath();
+            ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          } else if (shape.type === 'freehand' && shape.points) {
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = shape.strokeSize || brushRadius;
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+            ctx.beginPath();
+            shape.points.forEach((point, idx) => {
+              if (idx === 0) {
+                ctx.moveTo(point.x, point.y);
+              } else {
+                ctx.lineTo(point.x, point.y);
+              }
+            });
+            ctx.stroke();
+          }
+        });
+      };
+      img.src = getDisplayImage() || '';
+      return;
+    }
+
+    if (!imageLoaded) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -101,7 +289,6 @@ const Anonymize = () => {
       // Draw all shapes
       ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-      ctx.lineWidth = 2;
 
       [...shapes, currentShape].filter(Boolean).forEach(shape => {
         if (!shape) return;
@@ -111,6 +298,7 @@ const Anonymize = () => {
           const y = Math.min(shape.startY, shape.endY);
           const width = Math.abs(shape.endX - shape.startX);
           const height = Math.abs(shape.endY - shape.startY);
+          ctx.lineWidth = shape.thickness || shapeThickness;
           ctx.fillRect(x, y, width, height);
           ctx.strokeRect(x, y, width, height);
         } else if (shape.type === 'ellipse') {
@@ -118,33 +306,55 @@ const Anonymize = () => {
           const centerY = (shape.startY + shape.endY) / 2;
           const radiusX = Math.abs(shape.endX - shape.startX) / 2;
           const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+          ctx.lineWidth = shape.thickness || shapeThickness;
           ctx.beginPath();
           ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         } else if (shape.type === 'freehand' && shape.points) {
+          ctx.save();
           ctx.lineCap = 'round';
           ctx.lineJoin = 'round';
-          ctx.lineWidth = shape.strokeSize || strokeSizeValues.medium;
+          ctx.lineWidth = shape.strokeSize || brushRadius;
           ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+          // Apply vertical scaling to make brush strokes vertical
+          ctx.scale(1, 2);
           ctx.beginPath();
           shape.points.forEach((point, idx) => {
             if (idx === 0) {
-              ctx.moveTo(point.x, point.y);
+              ctx.moveTo(point.x, point.y / 2);
             } else {
-              ctx.lineTo(point.x, point.y);
+              ctx.lineTo(point.x, point.y / 2);
             }
           });
           ctx.stroke();
+          ctx.restore();
         }
       });
     };
     img.src = getDisplayImage() || '';
-  }, [shapes, currentShape, imageLoaded, getDisplayImage, strokeSizeValues.medium]);
+  }, [shapes, currentShape, imageLoaded, getDisplayImage, brushRadius, shapeThickness, isPDF, pdfPages]);
 
   useEffect(() => {
     redrawCanvas();
   }, [redrawCanvas]);
+
+  // Set canvas dimensions when PDF pages are loaded
+  useEffect(() => {
+    if (isPDF && pdfPages.length > 0 && canvasRef.current) {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          setImageDimensions({ width: img.width, height: img.height });
+          setImageLoaded(true);
+        }
+      };
+      img.src = pdfPages[currentPdfPageIndex];
+    }
+  }, [isPDF, pdfPages, currentPdfPageIndex]);
 
   const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -166,15 +376,32 @@ const Anonymize = () => {
     const { x, y } = getCanvasCoordinates(e);
     setIsDrawing(true);
 
+    if (selectedTool === 'erase') {
+      // For erase tool, we'll start tracking points to check for intersections
+      const newShape: RedactionShape = {
+        id: Date.now().toString(),
+        type: 'erase',
+        startX: x,
+        startY: y,
+        endX: x,
+        endY: y,
+        points: [{ x, y }],
+        strokeSize: brushRadius,
+      };
+      setCurrentShape(newShape);
+      return;
+    }
+
     const newShape: RedactionShape = {
       id: Date.now().toString(),
-      type: selectedTool,
+      type: selectedTool as 'rectangle' | 'ellipse' | 'freehand',
       startX: x,
       startY: y,
       endX: x,
       endY: y,
       points: selectedTool === 'freehand' ? [{ x, y }] : undefined,
-      strokeSize: selectedTool === 'freehand' ? strokeSizeValues[strokeSize] : undefined,
+      strokeSize: selectedTool === 'freehand' ? brushRadius : undefined,
+      thickness: (selectedTool === 'rectangle' || selectedTool === 'ellipse') ? shapeThickness : undefined,
     };
 
     setCurrentShape(newShape);
@@ -185,7 +412,7 @@ const Anonymize = () => {
 
     const { x, y } = getCanvasCoordinates(e);
 
-    if (currentShape.type === 'freehand') {
+    if (currentShape.type === 'freehand' || currentShape.type === 'erase') {
       setCurrentShape(prev => prev ? {
         ...prev,
         points: [...(prev.points || []), { x, y }],
@@ -197,9 +424,72 @@ const Anonymize = () => {
     }
   };
 
+  // Check if a point is inside a rectangle
+  const isPointInRectangle = (px: number, py: number, x: number, y: number, w: number, h: number): boolean => {
+    return px >= x && px <= x + w && py >= y && py <= y + h;
+  };
+
+  // Check if a point is inside an ellipse
+  const isPointInEllipse = (px: number, py: number, centerX: number, centerY: number, radiusX: number, radiusY: number): boolean => {
+    const dx = px - centerX;
+    const dy = py - centerY;
+    return (dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY) <= 1;
+  };
+
+  // Check if a point is near a line segment (for freehand)
+  const isPointNearLine = (px: number, py: number, x1: number, y1: number, x2: number, y2: number, threshold: number): boolean => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
+    const projX = x1 + t * dx;
+    const projY = y1 + t * dy;
+    const distance = Math.hypot(px - projX, py - projY);
+    return distance <= threshold;
+  };
+
   const handleMouseUp = () => {
     if (currentShape) {
-      setShapes(prev => [...prev, currentShape]);
+      if (currentShape.type === 'erase' && currentShape.points) {
+        // Erase: remove shapes that intersect with the erase stroke
+        const erasePoints = currentShape.points;
+        const threshold = (currentShape.strokeSize || brushRadius) * 1.5;
+
+        setShapes(prevShapes => {
+          return prevShapes.filter(shape => {
+            // Check if this shape intersects with any erase stroke point
+            for (const erasePt of erasePoints) {
+              if (shape.type === 'rectangle') {
+                const x = Math.min(shape.startX, shape.endX);
+                const y = Math.min(shape.startY, shape.endY);
+                const w = Math.abs(shape.endX - shape.startX);
+                const h = Math.abs(shape.endY - shape.startY);
+                if (isPointInRectangle(erasePt.x, erasePt.y, x - threshold, y - threshold, w + threshold * 2, h + threshold * 2)) {
+                  return false; // Remove this shape
+                }
+              } else if (shape.type === 'ellipse') {
+                const centerX = (shape.startX + shape.endX) / 2;
+                const centerY = (shape.startY + shape.endY) / 2;
+                const radiusX = Math.abs(shape.endX - shape.startX) / 2 + threshold;
+                const radiusY = Math.abs(shape.endY - shape.startY) / 2 + threshold;
+                if (isPointInEllipse(erasePt.x, erasePt.y, centerX, centerY, radiusX, radiusY)) {
+                  return false; // Remove this shape
+                }
+              } else if (shape.type === 'freehand' && shape.points) {
+                // Check if erase stroke intersects with freehand strokes
+                for (let i = 0; i < shape.points.length - 1; i++) {
+                  if (isPointNearLine(erasePt.x, erasePt.y, shape.points[i].x, shape.points[i].y, shape.points[i + 1].x, shape.points[i + 1].y, threshold)) {
+                    return false; // Remove this shape
+                  }
+                }
+              }
+            }
+            return true; // Keep this shape
+          });
+        });
+      } else {
+        // Regular shape drawing
+        setShapes(prev => [...prev, currentShape]);
+      }
       setCurrentShape(null);
     }
     setIsDrawing(false);
@@ -225,19 +515,21 @@ const Anonymize = () => {
         const y = Math.min(shape.startY, shape.endY);
         const width = Math.abs(shape.endX - shape.startX);
         const height = Math.abs(shape.endY - shape.startY);
+        ctx.lineWidth = shape.thickness || shapeThickness;
         ctx.fillRect(x, y, width, height);
       } else if (shape.type === 'ellipse') {
         const centerX = (shape.startX + shape.endX) / 2;
         const centerY = (shape.startY + shape.endY) / 2;
         const radiusX = Math.abs(shape.endX - shape.startX) / 2;
         const radiusY = Math.abs(shape.endY - shape.startY) / 2;
+        ctx.lineWidth = shape.thickness || shapeThickness;
         ctx.beginPath();
         ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
         ctx.fill();
       } else if (shape.type === 'freehand' && shape.points) {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.lineWidth = shape.strokeSize || strokeSizeValues.medium;
+        ctx.lineWidth = shape.strokeSize || brushRadius;
         ctx.beginPath();
         shape.points.forEach((point, idx) => {
           if (idx === 0) {
@@ -252,7 +544,21 @@ const Anonymize = () => {
 
     // Save the anonymized image
     const anonymizedDataURL = canvas.toDataURL('image/png');
-    updateAnonymizedImage(currentFile.id, anonymizedDataURL);
+    
+    if (isPDF) {
+      // For PDFs, update the current page in the anonymized pages array
+      const updatedPages = [...(currentFile?.anonymizedPages || pdfPages)];
+      updatedPages[currentPdfPageIndex] = anonymizedDataURL;
+      updateAnonymizedPDFPages(currentFile.id, updatedPages);
+    } else {
+      // For regular images
+      updateAnonymizedImage(currentFile.id, anonymizedDataURL);
+    }
+
+    // Mark file as edited in edit mode
+    if (isEditMode) {
+      setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+    }
 
     // Clear shapes after anonymization
     setShapes([]);
@@ -261,10 +567,52 @@ const Anonymize = () => {
 
   const handleNext = () => {
     if (isLastFile) {
-      // Navigate to digitization page
+      // In create mode, check if all documents have been visited
+      if (!isEditMode && !allDocsVisited) {
+        setTriggerShake(true);
+        setTimeout(() => setTriggerShake(false), 500);
+        setShowUnvisitedModal(true);
+        return;
+      }
+      
+      // In edit mode, warn if edited files haven't been anonymized
+      if (isEditMode) {
+        const incompleteFiles = progressList.filter(p => !p.visited);
+        if (incompleteFiles.length > 0) {
+          setTriggerShake(true);
+          setTimeout(() => setTriggerShake(false), 500);
+          setShowIncompleteEditModal(true);
+          return;
+        }
+      }
+      
+      // Navigate directly to digitization
       navigate('/upload/preview/0');
     } else {
       navigate(`/upload/anonymize/${currentIndex + 1}`);
+    }
+  };
+
+  const handleGoBackToIncomplete = () => {
+    setShowUnvisitedModal(false);
+    const firstUnvisited = unvisitedDocs[0];
+    if (firstUnvisited) {
+      const index = state.uploadedFiles.findIndex(f => f.id === firstUnvisited.id);
+      if (index >= 0) {
+        navigate(`/upload/anonymize/${index}`);
+      }
+    }
+  };
+
+  const handleGoBackToIncompleteEdit = () => {
+    setShowIncompleteEditModal(false);
+    const incompleteFiles = progressList.filter(p => !p.visited);
+    if (incompleteFiles.length > 0) {
+      const firstIncomplete = incompleteFiles[0];
+      const index = state.uploadedFiles.findIndex(f => f.id === firstIncomplete.id);
+      if (index >= 0) {
+        navigate(`/upload/anonymize/${index}`);
+      }
     }
   };
 
@@ -287,11 +635,11 @@ const Anonymize = () => {
     return null;
   }
 
-  // Only show canvas for images
-  const isImage = currentFile.type.startsWith('image/');
+  // Show canvas for images and PDFs
+  const isImage = currentFile.type.startsWith('image/') || currentFile.type === 'application/pdf';
 
   return (
-    <div className="h-screen bg-muted flex flex-col overflow-hidden overscroll-y-none">
+    <div className={`h-screen bg-muted flex flex-col overflow-hidden overscroll-y-none ${triggerShake ? 'shake' : ''}`}>
       <Header />
       
       {/* Compact Navigation Header */}
@@ -312,22 +660,30 @@ const Anonymize = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 text-sm font-medium text-foreground hover:text-primary truncate max-w-[180px] md:max-w-[280px]">
-                  {currentFile.name}
+                  <span className="truncate">{currentFile.name}</span>
                   <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
-                {state.uploadedFiles.map((file, index) => (
-                  <DropdownMenuItem
-                    key={file.id}
-                    onClick={() => handleFileSelect(index)}
-                    className={index === currentIndex ? 'bg-primary/10' : ''}
-                  >
-                    <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>
-                      {file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
+                {state.uploadedFiles.map((file, index) => {
+                  const fileProgress = progressList.find(p => p.id === file.id);
+                  return (
+                    <DropdownMenuItem
+                      key={file.id}
+                      onClick={() => handleFileSelect(index)}
+                      className={index === currentIndex ? 'bg-primary/10' : ''}
+                    >
+                      <div className="flex items-center justify-between gap-3 w-full group">
+                        <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>
+                          {file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}
+                        </span>
+                        {fileProgress?.visited && (
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 group-hover:text-white transition-colors" />
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -351,10 +707,10 @@ const Anonymize = () => {
             <button 
               onClick={handleNext} 
               className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-              aria-label="Next file"
+              aria-label={isLastFile ? 'Go to digitization' : 'Next file'}
             >
-              Next
-              <ArrowRight className="w-3.5 h-3.5" />
+              {isLastFile ? 'Go to Digitization' : 'Next'}
+              {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -362,14 +718,14 @@ const Anonymize = () => {
 
       {/* Main Layout */}
       <main className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left Sidebar - Tools */}
-        <div className="w-16 md:w-20 bg-background border-r border-border p-2 flex flex-col gap-2 flex-shrink-0">
-          <p className="text-[10px] text-muted-foreground text-center font-medium mb-1">Tools</p>
+        {/* Left Sidebar - Tools Panel (Vertical, 50% Height) */}
+        <div className="w-24 bg-background border-r border-border p-3 flex flex-col gap-3 flex-shrink-0 h-1/2 overflow-y-auto scrollbar-hide">
+          <p className="text-[10px] text-muted-foreground text-center font-medium">Tools</p>
           
           {/* Rectangle Tool */}
           <button
             onClick={() => setSelectedTool(selectedTool === 'rectangle' ? null : 'rectangle')}
-            className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors ${
+            className={`w-full py-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors text-center ${
               selectedTool === 'rectangle' 
                 ? 'bg-primary text-primary-foreground' 
                 : 'bg-muted hover:bg-muted/80 text-foreground'
@@ -377,13 +733,13 @@ const Anonymize = () => {
             title="Rectangle redaction"
           >
             <Square className="w-4 h-4" />
-            <span className="text-[9px]">Rect</span>
+            <span className="text-[8px] font-medium">Rectangle</span>
           </button>
 
           {/* Ellipse Tool */}
           <button
             onClick={() => setSelectedTool(selectedTool === 'ellipse' ? null : 'ellipse')}
-            className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors ${
+            className={`w-full py-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors text-center ${
               selectedTool === 'ellipse' 
                 ? 'bg-primary text-primary-foreground' 
                 : 'bg-muted hover:bg-muted/80 text-foreground'
@@ -391,13 +747,13 @@ const Anonymize = () => {
             title="Ellipse redaction"
           >
             <Circle className="w-4 h-4" />
-            <span className="text-[9px]">Ellipse</span>
+            <span className="text-[8px] font-medium">Ellipse</span>
           </button>
 
           {/* Freehand Tool */}
           <button
             onClick={() => setSelectedTool(selectedTool === 'freehand' ? null : 'freehand')}
-            className={`w-full aspect-square rounded-lg flex flex-col items-center justify-center gap-0.5 transition-colors ${
+            className={`w-full py-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors text-center ${
               selectedTool === 'freehand' 
                 ? 'bg-primary text-primary-foreground' 
                 : 'bg-muted hover:bg-muted/80 text-foreground'
@@ -405,44 +761,76 @@ const Anonymize = () => {
             title="Freehand redaction"
           >
             <Pencil className="w-4 h-4" />
-            <span className="text-[9px]">Draw</span>
+            <span className="text-[8px] font-medium">Freehand</span>
           </button>
 
-          {/* Stroke Size (only for freehand) */}
-          {selectedTool === 'freehand' && (
-            <div className="mt-2 space-y-1">
-              <p className="text-[9px] text-muted-foreground text-center">Size</p>
-              {(['small', 'medium', 'large'] as StrokeSize[]).map(size => (
-                <button
-                  key={size}
-                  onClick={() => setStrokeSize(size)}
-                  className={`w-full py-1 rounded text-[9px] transition-colors ${
-                    strokeSize === size 
-                      ? 'bg-primary/20 text-primary font-medium' 
-                      : 'bg-muted hover:bg-muted/80'
-                  }`}
-                >
-                  {size.charAt(0).toUpperCase() + size.slice(1)}
-                </button>
-              ))}
+          {/* Erase Tool */}
+          <button
+            onClick={() => setSelectedTool(selectedTool === 'erase' ? null : 'erase')}
+            className={`w-full py-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors text-center ${
+              selectedTool === 'erase' 
+                ? 'bg-primary text-primary-foreground' 
+                : 'bg-muted hover:bg-muted/80 text-foreground'
+            }`}
+            title="Erase marks"
+          >
+            <Eraser className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Erase</span>
+          </button>
+
+          {/* Divider */}
+          <div className="border-t border-border my-1" />
+
+          {/* Stroke Size Slider (only for freehand or erase) */}
+          {(selectedTool === 'freehand' || selectedTool === 'erase') && (
+            <div className="space-y-2">
+              <p className="text-[8px] text-muted-foreground font-medium text-center">Brush Size</p>
+              <input
+                type="range"
+                min="2"
+                max="50"
+                value={brushRadius}
+                onChange={e => setBrushRadius(parseInt(e.target.value, 10))}
+                className="w-full cursor-pointer h-1"
+              />
+              <p className="text-[8px] text-muted-foreground text-center font-medium">{brushRadius}px</p>
             </div>
           )}
+
+          {/* Thickness Slider (for rectangle and ellipse) */}
+          {(selectedTool === 'rectangle' || selectedTool === 'ellipse') && (
+            <div className="space-y-2">
+              <p className="text-[8px] text-muted-foreground font-medium text-center">Thickness</p>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                value={shapeThickness}
+                onChange={e => setShapeThickness(parseInt(e.target.value, 10))}
+                className="w-full cursor-pointer h-1"
+              />
+              <p className="text-[8px] text-muted-foreground text-center font-medium">{shapeThickness}px</p>
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="border-t border-border my-1" />
 
           {/* Undo last shape */}
           {shapes.length > 0 && (
             <button
               onClick={() => setShapes(prev => prev.slice(0, -1))}
-              className="w-full py-1.5 mt-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-[9px] transition-colors"
+              className="w-full py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-[8px] transition-colors font-medium"
               title="Undo last"
             >
-              Undo
+              Undo ({shapes.length})
             </button>
           )}
         </div>
 
         {/* Right: Canvas Area with Zoom */}
-        <div className="flex-1 p-3 overflow-hidden" ref={containerRef}>
-          <div className="h-full rounded-lg overflow-hidden bg-background relative border border-border">
+        <div className="flex-1 p-3 overflow-hidden flex flex-col" ref={containerRef}>
+          <div className="flex-1 rounded-lg overflow-hidden bg-background relative border border-border">
             {isImage ? (
               <TransformWrapper
                 initialScale={1}
@@ -455,8 +843,14 @@ const Anonymize = () => {
               >
                 {({ zoomIn, zoomOut, resetTransform }) => (
                   <>
-                    {/* Zoom Controls + Anonymize Button */}
-                    <div className="absolute top-3 right-3 z-10 flex gap-2">
+                    {/* Zoom Controls + Anonymize Button + PDF Info */}
+                    <div className="absolute top-3 right-3 z-10 flex gap-2 items-center">
+                      {isPDF && totalPdfPages > 0 && (
+                        <div className="px-3 py-1.5 bg-background/90 border border-border rounded-lg text-xs text-foreground">
+                          Page {currentPdfPageIndex + 1} of {totalPdfPages}
+                        </div>
+                      )}
+                      
                       <button
                         onClick={() => zoomIn()}
                         className="w-8 h-8 bg-background/90 border border-border rounded-lg flex items-center justify-center hover:bg-muted transition-colors"
@@ -518,7 +912,7 @@ const Anonymize = () => {
               </TransformWrapper>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-4">
-                <p className="text-sm mb-2">Anonymization is only available for image files.</p>
+                <p className="text-sm mb-2">Anonymization is not available for this file type.</p>
                 <p className="text-xs">This file type ({currentFile.type}) will be processed as-is.</p>
                 <button
                   onClick={handleNext}
@@ -529,8 +923,57 @@ const Anonymize = () => {
               </div>
             )}
           </div>
+
+          {/* PDF Page Navigation */}
+          {isPDF && pdfPages.length > 1 && (
+            <div className="mt-3 flex items-center justify-center gap-2">
+              <button
+                onClick={() => setCurrentPdfPageIndex(prev => Math.max(0, prev - 1))}
+                disabled={currentPdfPageIndex === 0}
+                className="vmtb-btn-outline flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Previous Page
+              </button>
+              <span className="text-xs text-muted-foreground px-3">
+                Page {currentPdfPageIndex + 1} of {pdfPages.length}
+              </span>
+              <button
+                onClick={() => setCurrentPdfPageIndex(prev => Math.min(pdfPages.length - 1, prev + 1))}
+                disabled={currentPdfPageIndex === pdfPages.length - 1}
+                className="vmtb-btn-outline flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
+              >
+                Next Page
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </main>
+
+      {/* Unvisited Documents Warning Modal */}
+      <ConfirmModal
+        open={showUnvisitedModal}
+        onOpenChange={setShowUnvisitedModal}
+        title="Some documents are incomplete"
+        description={`Please complete all documents before proceeding. The following documents are not completed: ${unvisitedDocs.map(d => d.name).join(', ')}`}
+        confirmLabel="Go Back & Complete"
+        cancelLabel=""
+        onConfirm={handleGoBackToIncomplete}
+        onCancel={() => setShowUnvisitedModal(false)}
+      />
+
+      {/* Incomplete Files Warning Modal (Edit Mode) */}
+      <ConfirmModal
+        open={showIncompleteEditModal}
+        onOpenChange={setShowIncompleteEditModal}
+        title="Some documents are incomplete"
+        description={`Please anonymize all documents before proceeding to digitization. The following documents are not completed: ${progressList.filter(p => !p.visited).map(p => p.name).join(', ')}`}
+        confirmLabel="Go Back & Complete"
+        cancelLabel=""
+        onConfirm={handleGoBackToIncompleteEdit}
+        onCancel={() => setShowIncompleteEditModal(false)}
+      />
     </div>
   );
 };

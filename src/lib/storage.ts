@@ -26,6 +26,8 @@ export interface UploadedFile {
   fileCategory: string;
   extractedData?: Record<string, string>;
   anonymizedDataURL?: string; // Stores the anonymized version of the image
+  anonymizedPages?: string[]; // For PDFs: array of anonymized page data URLs
+  pdfPages?: string[]; // For PDFs: array of rendered page data URLs
 }
 
 export interface Case {
@@ -96,6 +98,9 @@ export interface AppState {
   emailVerificationOtp: string | null;
   emailVerificationPending: string | null;
   invitations: Invitation[];
+  isEditMode: boolean;
+  editingCaseId: string | null;
+  originalFiles: UploadedFile[];
 }
 
 const STORAGE_KEY = 'vmtb_app_state';
@@ -166,6 +171,9 @@ const getDefaultState = (): AppState => ({
   emailVerificationOtp: null,
   emailVerificationPending: null,
   invitations: [],
+  isEditMode: false,
+  editingCaseId: null,
+  originalFiles: [],
 });
 
 export const loadState = (): AppState => {

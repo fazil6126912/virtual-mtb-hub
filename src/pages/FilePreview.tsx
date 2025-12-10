@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import ZoomablePreview from '@/components/ZoomablePreview';
 import ConfirmModal from '@/components/ConfirmModal';
@@ -13,6 +13,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+interface FileProgress {
+  id: string;
+  name: string;
+  visited: boolean;
+}
+
 /**
  * FilePreview page with redesigned compact header:
  * - Left: Previous button
@@ -23,9 +29,27 @@ import {
 const FilePreview = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
-  const { state, updateFileExtractedData, createCase } = useApp();
+  const { state, updateFileExtractedData, createCase, modifyCase } = useApp();
+  const isEditMode = state.isEditMode;
   const [jsonText, setJsonText] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showModifyModal, setShowModifyModal] = useState(false);
+  const [showIncompleteModal, setShowIncompleteModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [editedFileIds, setEditedFileIds] = useState<Set<string>>(new Set());
+  const [progressList, setProgressList] = useState<FileProgress[]>(() => {
+    if (isEditMode) {
+      // In edit mode, mark original files as visited, new files as not visited
+      return state.uploadedFiles.map(file => ({
+        id: file.id,
+        name: file.name,
+        visited: state.originalFiles.some(orig => orig.id === file.id) && !editedFileIds.has(file.id),
+      }));
+    }
+    return state.uploadedFiles.map(file => ({ id: file.id, name: file.name, visited: false }));
+  });
+  const [showUnvisitedModal, setShowUnvisitedModal] = useState(false);
+  const [triggerShake, setTriggerShake] = useState(false);
 
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -41,13 +65,52 @@ const FilePreview = () => {
     }
   }, [currentFile]);
 
+  // Show loading state when file changes
+  useEffect(() => {
+    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000); // 3 second loader
+
+    return () => clearTimeout(timer);
+  }, [currentIndex]);
+
+  // Mark current document as visited when landing on it (unless edit mode and original file)
+  useEffect(() => {
+    if (isEditMode && state.originalFiles.some(f => f.id === currentFile?.id)) {
+      // Don't require re-visit for unchanged original files
+      return;
+    }
+    setProgressList(prev =>
+      prev.map(p => p.id === currentFile?.id ? { ...p, visited: true } : p)
+    );
+  }, [currentIndex, currentFile?.id, isEditMode]);
+
+  const allDocsVisited = progressList.every(p => p.visited);
+  const unvisitedDocs = progressList.filter(p => !p.visited);
+
   const saveCurrentFile = () => {
     if (currentFile) {
+      // Check if extracted data has changed (for edit mode)
+      const originalFile = state.originalFiles.find(f => f.id === currentFile.id);
+      const originalData = originalFile?.extractedData ? JSON.stringify(originalFile.extractedData) : '{}';
+      const newData = jsonText;
+      
       try {
-        const parsed = JSON.parse(jsonText);
+        const parsed = JSON.parse(newData);
         updateFileExtractedData(currentFile.id, parsed);
+        
+        // Mark as edited if data changed and in edit mode
+        if (isEditMode && newData !== originalData) {
+          setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+        }
       } catch {
-        updateFileExtractedData(currentFile.id, { content: jsonText });
+        updateFileExtractedData(currentFile.id, { content: newData });
+        
+        // Mark as edited if content changed and in edit mode
+        if (isEditMode && originalData !== `{"content":"${newData}"}`) {
+          setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+        }
       }
     }
   };
@@ -56,7 +119,18 @@ const FilePreview = () => {
     saveCurrentFile();
     
     if (isLastFile) {
-      setShowSubmitModal(true);
+      // In edit mode, skip all-files-visited check
+      if (!isEditMode && !allDocsVisited) {
+        setTriggerShake(true);
+        setTimeout(() => setTriggerShake(false), 500);
+        setShowUnvisitedModal(true);
+        return;
+      }
+      if (isEditMode) {
+        setShowModifyModal(true);
+      } else {
+        setShowSubmitModal(true);
+      }
     } else {
       navigate(`/upload/preview/${currentIndex + 1}`);
     }
@@ -89,13 +163,67 @@ const FilePreview = () => {
     setShowSubmitModal(false);
   };
 
+  const handleModifyCase = () => {
+    saveCurrentFile();
+    
+    // Check which files are incomplete
+    const incompleteFiles = progressList.filter(p => !p.visited).map(p => p.name);
+    
+    if (incompleteFiles.length > 0) {
+      // Trigger earthquake and show incomplete files modal
+      setTriggerShake(true);
+      setTimeout(() => setTriggerShake(false), 500);
+      setShowIncompleteModal(true);
+      return;
+    }
+    
+    // All files complete, proceed with modification
+    if (modifyCase()) {
+      toast.success('Case updated successfully!');
+      setShowModifyModal(false);
+      // Navigate to the case view page
+      if (state.editingCaseId) {
+        navigate(`/cases/${state.editingCaseId}`);
+      }
+    } else {
+      toast.error('Failed to update case');
+    }
+  };
+
+  const handleGoBackFromModify = () => {
+    setShowModifyModal(false);
+  };
+
+  const handleGoBackFromIncomplete = () => {
+    setShowIncompleteModal(false);
+    const incompleteFiles = progressList.filter(p => !p.visited);
+    if (incompleteFiles.length > 0) {
+      const firstIncomplete = incompleteFiles[0];
+      const index = state.uploadedFiles.findIndex(f => f.id === firstIncomplete.id);
+      if (index >= 0) {
+        navigate(`/upload/preview/${index}`);
+      }
+    }
+  };
+
+  const handleGoBackToIncomplete = () => {
+    setShowUnvisitedModal(false);
+    const firstUnvisited = unvisitedDocs[0];
+    if (firstUnvisited) {
+      const index = state.uploadedFiles.findIndex(f => f.id === firstUnvisited.id);
+      if (index >= 0) {
+        navigate(`/upload/preview/${index}`);
+      }
+    }
+  };
+
   if (!state.currentPatient || !currentFile) {
     navigate('/home');
     return null;
   }
 
   return (
-    <div className="h-screen bg-muted flex flex-col overflow-hidden overscroll-y-none">
+    <div className={`h-screen bg-muted flex flex-col overflow-hidden overscroll-y-none ${triggerShake ? 'shake' : ''}`}>
       <Header />
       
       {/* Compact Single-Row File Navigation Header */}
@@ -116,20 +244,28 @@ const FilePreview = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1 text-sm font-medium text-foreground hover:text-primary truncate max-w-[180px] md:max-w-[280px]">
-                  {currentFile.name}
+                  <span className="truncate">{currentFile.name}</span>
                   <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
-                {state.uploadedFiles.map((file, index) => (
-                  <DropdownMenuItem
-                    key={file.id}
-                    onClick={() => handleFileSelect(index)}
-                    className={index === currentIndex ? 'bg-primary/10' : ''}
-                  >
-                    <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>{file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}</span>
-                  </DropdownMenuItem>
-                ))}
+                {state.uploadedFiles.map((file, index) => {
+                  const fileProgress = progressList.find(p => p.id === file.id);
+                  return (
+                    <DropdownMenuItem
+                      key={file.id}
+                      onClick={() => handleFileSelect(index)}
+                      className={index === currentIndex ? 'bg-primary/10' : ''}
+                    >
+                      <div className="flex items-center justify-between gap-3 w-full group">
+                        <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>{file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}</span>
+                        {fileProgress?.visited && (
+                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 group-hover:text-white transition-colors" />
+                        )}
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -153,9 +289,9 @@ const FilePreview = () => {
             <button 
               onClick={handleNext} 
               className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-              aria-label={isLastFile ? 'Submit' : 'Next file'}
+              aria-label={isLastFile ? (isEditMode ? 'Modify case' : 'Create case') : 'Next file'}
             >
-              {isLastFile ? 'Submit' : 'Next'}
+              {isLastFile ? (isEditMode ? 'Modify Case' : 'Create Case') : 'Next'}
               {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
             </button>
           </div>
@@ -171,17 +307,38 @@ const FilePreview = () => {
           </div>
         </div>
 
-        {/* Right Panel - JSON Editor Only */}
+        {/* Right Panel - JSON Editor or Loader */}
         <div className="w-full md:w-1/2 flex flex-col p-3 overflow-hidden flex-1 md:flex-initial md:h-full">
-          <textarea
-            value={jsonText}
-            onChange={e => setJsonText(e.target.value)}
-            className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[150px]"
-            placeholder="Extracted JSON data..."
-            spellCheck={false}
-          />
+          {isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
+              <div className="mb-4 flex justify-center">
+                <div className="w-8 h-8 border-4 border-muted border-t-primary rounded-full animate-spin" />
+              </div>
+              <p className="text-sm font-medium">Processing, please wait…</p>
+            </div>
+          ) : (
+            <textarea
+              value={jsonText}
+              onChange={e => setJsonText(e.target.value)}
+              className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[150px]"
+              placeholder="Extracted JSON data..."
+              spellCheck={false}
+            />
+          )}
         </div>
       </main>
+
+      {/* Unvisited Documents Warning Modal */}
+      <ConfirmModal
+        open={showUnvisitedModal}
+        onOpenChange={setShowUnvisitedModal}
+        title="Some documents are incomplete"
+        description={`Please complete all documents before proceeding. The following documents are not completed: ${unvisitedDocs.map(d => d.name).join(', ')}`}
+        confirmLabel="Go Back & Complete"
+        cancelLabel=""
+        onConfirm={handleGoBackToIncomplete}
+        onCancel={() => setShowUnvisitedModal(false)}
+      />
 
       {/* Submit Confirmation Modal */}
       <ConfirmModal
@@ -193,6 +350,30 @@ const FilePreview = () => {
         cancelLabel="Go Back"
         onConfirm={handleCreateCase}
         onCancel={handleGoBack}
+      />
+
+      {/* Modify Case Confirmation Modal */}
+      <ConfirmModal
+        open={showModifyModal}
+        onOpenChange={setShowModifyModal}
+        title="Modify Case"
+        description="Are you ready to save these changes to the case? All edits will be permanently updated."
+        confirmLabel="Modify Case"
+        cancelLabel="Go Back"
+        onConfirm={handleModifyCase}
+        onCancel={handleGoBackFromModify}
+      />
+
+      {/* Incomplete Files Warning Modal (Edit Mode) */}
+      <ConfirmModal
+        open={showIncompleteModal}
+        onOpenChange={setShowIncompleteModal}
+        title="Some documents are incomplete"
+        description={`Please complete all documents before modifying the case. The following documents are not completed: ${progressList.filter(p => !p.visited).map(p => p.name).join(', ')}`}
+        confirmLabel="Go Back & Complete"
+        cancelLabel=""
+        onConfirm={handleGoBackFromIncomplete}
+        onCancel={() => setShowIncompleteModal(false)}
       />
     </div>
   );

@@ -279,4 +279,16 @@
       transform: translateY(0);
     }
   }
+
+  @keyframes shakeAnim {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    50% { transform: translateX(10px); }
+    75% { transform: translateX(-10px); }
+    100% { transform: translateX(0); }
+  }
+
+  .shake {
+    animation: shakeAnim 0.5s ease;
+  }
 }
