@@ -28,6 +28,19 @@ export interface UploadedFile {
   anonymizedDataURL?: string; // Stores the anonymized version of the image
   anonymizedPages?: string[]; // For PDFs: array of anonymized page data URLs
   pdfPages?: string[]; // For PDFs: array of rendered page data URLs
+  // New fields for workflow tracking
+  mimeType?: string; // image/png, application/pdf, etc.
+  pageIndex?: number; // for multi-page files
+  createdAt?: string;
+  lastModifiedAt?: string; // updated when file content or anonymization changes
+  anonymizedVisited?: boolean; // true once user visited file in Anonymization and left it
+  digitizedVisited?: boolean; // true once user visited file in Digitization and left it
+  anonymizedChangedAt?: string; // timestamp set when anon edits applied -> clears digitizedVisited
+  uploadedAt?: string; // when uploaded (useful to detect new files)
+  // Visited/dirty tracking
+  visited?: boolean; // true if user has viewed/confirmed the file since last edit
+  dirty?: boolean; // true if edited since last confirmation
+  lastVisitedAt?: number; // optional timestamp for ordering/debugging
 }
 
 export interface Case {
@@ -101,6 +114,7 @@ export interface AppState {
   isEditMode: boolean;
   editingCaseId: string | null;
   originalFiles: UploadedFile[];
+  editedFileIds: string[]; // Track which files were modified in edit mode
 }
 
 const STORAGE_KEY = 'vmtb_app_state';
@@ -174,6 +188,7 @@ const getDefaultState = (): AppState => ({
   isEditMode: false,
   editingCaseId: null,
   originalFiles: [],
+  editedFileIds: [],
 });
 
 export const loadState = (): AppState => {

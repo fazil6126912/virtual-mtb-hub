@@ -282,13 +282,32 @@
 
   @keyframes shakeAnim {
     0% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    50% { transform: translateX(10px); }
-    75% { transform: translateX(-10px); }
+    25% { transform: translateX(-8px); }
+    50% { transform: translateX(8px); }
+    75% { transform: translateX(-8px); }
     100% { transform: translateX(0); }
   }
 
   .shake {
-    animation: shakeAnim 0.5s ease;
+    animation: shakeAnim 0.3s ease;
+  }
+
+  /* Fix dropdown tick hover color - always white on hover */
+  .file-row-tick {
+    transition: color 0.2s;
+  }
+
+  .dropdown-menu-item:hover .file-row-tick,
+  .dropdown-menu-item[data-highlighted] .file-row-tick {
+    color: white !important;
+  }
+
+  /* Fix hover text color in searchable dropdown lists */
+  .hover\:bg-accent:hover {
+    color: white !important;
+  }
+
+  .hover\:bg-accent:hover .text-muted-foreground {
+    color: rgba(255, 255, 255, 0.8) !important;
   }
 }

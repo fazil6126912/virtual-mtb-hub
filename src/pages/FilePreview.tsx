@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, ChevronDown, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
@@ -13,14 +13,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-interface FileProgress {
-  id: string;
-  name: string;
-  visited: boolean;
-}
-
 /**
- * FilePreview page with redesigned compact header:
+ * FilePreview page (Digitization) with redesigned compact header:
  * - Left: Previous button
  * - Center: File name, dropdown for file selection, file type tag
  * - Right: Next/Submit button
@@ -29,26 +23,25 @@ interface FileProgress {
 const FilePreview = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
-  const { state, updateFileExtractedData, createCase, modifyCase } = useApp();
-  const isEditMode = state.isEditMode;
+  const { 
+    state, 
+    updateFileExtractedData, 
+    createCase, 
+    modifyCase, 
+    markFileAsEdited,
+    markDigitizedVisited,
+    markDigitizedDirty,
+    getMissingAnonymization,
+    getMissingDigitization,
+    isCreateValid,
+    isModifyValid,
+  } = useApp();
+  const mode = state.isEditMode ? 'MODIFY' : 'CREATE';
   const [jsonText, setJsonText] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [editedFileIds, setEditedFileIds] = useState<Set<string>>(new Set());
-  const [progressList, setProgressList] = useState<FileProgress[]>(() => {
-    if (isEditMode) {
-      // In edit mode, mark original files as visited, new files as not visited
-      return state.uploadedFiles.map(file => ({
-        id: file.id,
-        name: file.name,
-        visited: state.originalFiles.some(orig => orig.id === file.id) && !editedFileIds.has(file.id),
-      }));
-    }
-    return state.uploadedFiles.map(file => ({ id: file.id, name: file.name, visited: false }));
-  });
-  const [showUnvisitedModal, setShowUnvisitedModal] = useState(false);
   const [triggerShake, setTriggerShake] = useState(false);
 
   const currentIndex = parseInt(fileIndex || '0', 10);
@@ -57,13 +50,39 @@ const FilePreview = () => {
   const isLastFile = currentIndex === totalFiles - 1;
   const isFirstFile = currentIndex === 0;
 
+  // Debug logging (dev-only)
+  const logVisitedState = (reason: string) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[FilePreview] visited-state', reason, {
+        currentIndex,
+        currentFile: currentFile?.name,
+        files: state.uploadedFiles.map(f => ({
+          name: f.name,
+          digitizedVisited: f.digitizedVisited,
+          anonymizedVisited: f.anonymizedVisited,
+          dirty: f.dirty,
+          lastVisitedAt: f.lastVisitedAt,
+        })),
+      });
+    }
+  };
+
+  // Mark file as visited immediately when user views it (via navigation, dropdown, etc.)
+  useEffect(() => {
+    if (currentFile) {
+      markDigitizedVisited(currentFile.id);
+      logVisitedState(`file viewed: ${currentFile.name}`);
+    }
+  }, [currentIndex, currentFile?.id]);
+
+  // Update jsonText when currentIndex or currentFile changes
   useEffect(() => {
     if (currentFile?.extractedData) {
       setJsonText(JSON.stringify(currentFile.extractedData, null, 2));
     } else {
       setJsonText('{}');
     }
-  }, [currentFile]);
+  }, [currentIndex, currentFile?.id, currentFile?.extractedData]);
 
   // Show loading state when file changes
   useEffect(() => {
@@ -75,19 +94,6 @@ const FilePreview = () => {
     return () => clearTimeout(timer);
   }, [currentIndex]);
 
-  // Mark current document as visited when landing on it (unless edit mode and original file)
-  useEffect(() => {
-    if (isEditMode && state.originalFiles.some(f => f.id === currentFile?.id)) {
-      // Don't require re-visit for unchanged original files
-      return;
-    }
-    setProgressList(prev =>
-      prev.map(p => p.id === currentFile?.id ? { ...p, visited: true } : p)
-    );
-  }, [currentIndex, currentFile?.id, isEditMode]);
-
-  const allDocsVisited = progressList.every(p => p.visited);
-  const unvisitedDocs = progressList.filter(p => !p.visited);
 
   const saveCurrentFile = () => {
     if (currentFile) {
@@ -96,20 +102,35 @@ const FilePreview = () => {
       const originalData = originalFile?.extractedData ? JSON.stringify(originalFile.extractedData) : '{}';
       const newData = jsonText;
       
+      const savedData = currentFile.extractedData ? JSON.stringify(currentFile.extractedData, null, 2) : '{}';
+      const hasChanged = newData !== savedData;
+      
       try {
         const parsed = JSON.parse(newData);
         updateFileExtractedData(currentFile.id, parsed);
         
         // Mark as edited if data changed and in edit mode
-        if (isEditMode && newData !== originalData) {
-          setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+        if (mode === 'MODIFY' && newData !== originalData) {
+          markFileAsEdited(currentFile.id);
+        }
+        
+        // When digitization edits occur, mark file as dirty and not visited (requires re-visit)
+        if (hasChanged) {
+          markDigitizedDirty(currentFile.id);
+          logVisitedState(`file edited (digitized): ${currentFile.name}`);
         }
       } catch {
         updateFileExtractedData(currentFile.id, { content: newData });
         
         // Mark as edited if content changed and in edit mode
-        if (isEditMode && originalData !== `{"content":"${newData}"}`) {
-          setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+        if (mode === 'MODIFY' && originalData !== `{"content":"${newData}"}`) {
+          markFileAsEdited(currentFile.id);
+        }
+        
+        // When digitization edits occur, mark file as dirty and not visited (requires re-visit)
+        if (hasChanged) {
+          markDigitizedDirty(currentFile.id);
+          logVisitedState(`file edited (digitized): ${currentFile.name}`);
         }
       }
     }
@@ -119,17 +140,11 @@ const FilePreview = () => {
     saveCurrentFile();
     
     if (isLastFile) {
-      // In edit mode, skip all-files-visited check
-      if (!isEditMode && !allDocsVisited) {
-        setTriggerShake(true);
-        setTimeout(() => setTriggerShake(false), 500);
-        setShowUnvisitedModal(true);
-        return;
-      }
-      if (isEditMode) {
-        setShowModifyModal(true);
+      // On last file, "Next" should trigger Create/Modify
+      if (mode === 'CREATE') {
+        handleCreateCaseClick();
       } else {
-        setShowSubmitModal(true);
+        handleModifyCaseClick();
       }
     } else {
       navigate(`/upload/preview/${currentIndex + 1}`);
@@ -148,10 +163,40 @@ const FilePreview = () => {
     navigate(`/upload/preview/${index}`);
   };
 
+  const handleCreateCaseClick = () => {
+    // Use functional update pattern to mark current file as visited and validate atomically
+    // This ensures we validate against the latest state, not a stale closure
+    const updatedFiles = state.uploadedFiles.map((f, i) =>
+      i === currentIndex 
+        ? { ...f, digitizedVisited: true, dirty: false, lastVisitedAt: Date.now() }
+        : f
+    );
+    
+    logVisitedState('before final validation (Create Case)');
+    
+    // Validate using the updated files array
+    const missingAnon = getMissingAnonymization(updatedFiles);
+    const missingDigit = getMissingDigitization(updatedFiles);
+    
+    if (missingAnon.length > 0 || missingDigit.length > 0) {
+      setTriggerShake(true);
+      setTimeout(() => setTriggerShake(false), 300);
+      setShowIncompleteModal(true);
+      logVisitedState(`validation failed: missing ${missingAnon.length} anon, ${missingDigit.length} digit`);
+      return;
+    }
+    
+    // Update state with visited flag
+    markDigitizedVisited(currentFile.id);
+    logVisitedState('validation passed, showing create modal');
+    
+    setShowSubmitModal(true);
+  };
+
   const handleCreateCase = () => {
     const newCase = createCase();
     if (newCase) {
-      toast.success('Case created successfully!');
+      toast.success('Case created');
       setShowSubmitModal(false);
       navigate(`/cases/${newCase.id}`);
     } else {
@@ -163,23 +208,42 @@ const FilePreview = () => {
     setShowSubmitModal(false);
   };
 
-  const handleModifyCase = () => {
-    saveCurrentFile();
+  const handleModifyCaseClick = () => {
+    // Use functional update pattern to mark current file as visited and validate atomically
+    // This ensures we validate against the latest state, not a stale closure
+    const updatedFiles = state.uploadedFiles.map((f, i) =>
+      i === currentIndex 
+        ? { ...f, digitizedVisited: true, dirty: false, lastVisitedAt: Date.now() }
+        : f
+    );
     
-    // Check which files are incomplete
-    const incompleteFiles = progressList.filter(p => !p.visited).map(p => p.name);
+    logVisitedState('before final validation (Modify Case)');
     
-    if (incompleteFiles.length > 0) {
-      // Trigger earthquake and show incomplete files modal
+    // Validate using the updated files array
+    const missingAnon = getMissingAnonymization(updatedFiles);
+    const missingDigit = getMissingDigitization(updatedFiles);
+    
+    if (missingAnon.length > 0 || missingDigit.length > 0) {
       setTriggerShake(true);
-      setTimeout(() => setTriggerShake(false), 500);
+      setTimeout(() => setTriggerShake(false), 300);
       setShowIncompleteModal(true);
+      logVisitedState(`validation failed: missing ${missingAnon.length} anon, ${missingDigit.length} digit`);
       return;
     }
     
+    // Update state with visited flag
+    markDigitizedVisited(currentFile.id);
+    logVisitedState('validation passed, showing modify modal');
+    
+    setShowModifyModal(true);
+  };
+
+  const handleModifyCase = () => {
+    saveCurrentFile();
+    
     // All files complete, proceed with modification
     if (modifyCase()) {
-      toast.success('Case updated successfully!');
+      toast.success('Case updated');
       setShowModifyModal(false);
       // Navigate to the case view page
       if (state.editingCaseId) {
@@ -196,23 +260,25 @@ const FilePreview = () => {
 
   const handleGoBackFromIncomplete = () => {
     setShowIncompleteModal(false);
-    const incompleteFiles = progressList.filter(p => !p.visited);
-    if (incompleteFiles.length > 0) {
-      const firstIncomplete = incompleteFiles[0];
-      const index = state.uploadedFiles.findIndex(f => f.id === firstIncomplete.id);
-      if (index >= 0) {
-        navigate(`/upload/preview/${index}`);
+    const missingAnon = getMissingAnonymization();
+    const missingDigit = getMissingDigitization();
+    
+    // Navigate to anonymization if missing anon, otherwise digitization
+    if (missingAnon.length > 0) {
+      const firstMissing = state.uploadedFiles.find(f => missingAnon.includes(f.name));
+      if (firstMissing) {
+        const index = state.uploadedFiles.findIndex(f => f.id === firstMissing.id);
+        if (index >= 0) {
+          navigate(`/upload/anonymize/${index}`);
+        }
       }
-    }
-  };
-
-  const handleGoBackToIncomplete = () => {
-    setShowUnvisitedModal(false);
-    const firstUnvisited = unvisitedDocs[0];
-    if (firstUnvisited) {
-      const index = state.uploadedFiles.findIndex(f => f.id === firstUnvisited.id);
-      if (index >= 0) {
-        navigate(`/upload/preview/${index}`);
+    } else if (missingDigit.length > 0) {
+      const firstMissing = state.uploadedFiles.find(f => missingDigit.includes(f.name));
+      if (firstMissing) {
+        const index = state.uploadedFiles.findIndex(f => f.id === firstMissing.id);
+        if (index >= 0) {
+          navigate(`/upload/preview/${index}`);
+        }
       }
     }
   };
@@ -249,23 +315,20 @@ const FilePreview = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
-                {state.uploadedFiles.map((file, index) => {
-                  const fileProgress = progressList.find(p => p.id === file.id);
-                  return (
-                    <DropdownMenuItem
-                      key={file.id}
-                      onClick={() => handleFileSelect(index)}
-                      className={index === currentIndex ? 'bg-primary/10' : ''}
-                    >
-                      <div className="flex items-center justify-between gap-3 w-full group">
-                        <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>{file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}</span>
-                        {fileProgress?.visited && (
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 group-hover:text-white transition-colors" />
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  );
-                })}
+                {state.uploadedFiles.map((file, index) => (
+                  <DropdownMenuItem
+                    key={file.id}
+                    onClick={() => handleFileSelect(index)}
+                    className={index === currentIndex ? 'bg-primary/10' : ''}
+                  >
+                    <div className="flex items-center justify-between gap-3 w-full group">
+                      <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>{file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}</span>
+                      {file.digitizedVisited && (
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 file-row-tick" />
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -275,7 +338,7 @@ const FilePreview = () => {
             </span>
           </div>
 
-          {/* Right: Previous and Next/Submit Buttons */}
+          {/* Right: Buttons based on CREATE vs MODIFY mode */}
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevious}
@@ -286,14 +349,51 @@ const FilePreview = () => {
               <ArrowLeft className="w-3.5 h-3.5" />
               Previous
             </button>
-            <button 
-              onClick={handleNext} 
-              className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-              aria-label={isLastFile ? (isEditMode ? 'Modify case' : 'Create case') : 'Next file'}
-            >
-              {isLastFile ? (isEditMode ? 'Modify Case' : 'Create Case') : 'Next'}
-              {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
-            </button>
+            {mode === 'CREATE' ? (
+              // CREATE mode: Next on non-last, Create Case on last
+              <>
+                {!isLastFile && (
+                  <button 
+                    onClick={handleNext} 
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Next file"
+                  >
+                    Next
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {isLastFile && (
+                  <button
+                    onClick={handleCreateCaseClick}
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Create case"
+                  >
+                    Create Case
+                  </button>
+                )}
+              </>
+            ) : (
+              // MODIFY mode: Next on non-last, Modify Case always visible
+              <>
+                {!isLastFile && (
+                  <button 
+                    onClick={handleNext} 
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Next file"
+                  >
+                    Next
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  onClick={handleModifyCaseClick}
+                  className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                  aria-label="Modify case"
+                >
+                  Modify Case
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -319,7 +419,17 @@ const FilePreview = () => {
           ) : (
             <textarea
               value={jsonText}
-              onChange={e => setJsonText(e.target.value)}
+              onChange={e => {
+                setJsonText(e.target.value);
+                // When user edits digitized text, mark file as dirty and not visited (requires re-visit)
+                // Only mark if the text actually differs from the saved state
+                if (currentFile) {
+                  const savedData = currentFile.extractedData ? JSON.stringify(currentFile.extractedData, null, 2) : '{}';
+                  if (e.target.value !== savedData) {
+                    markDigitizedDirty(currentFile.id);
+                  }
+                }
+              }}
               className="flex-1 vmtb-input font-mono text-sm resize-none min-h-[150px]"
               placeholder="Extracted JSON data..."
               spellCheck={false}
@@ -328,16 +438,16 @@ const FilePreview = () => {
         </div>
       </main>
 
-      {/* Unvisited Documents Warning Modal */}
+      {/* Incomplete Documents Warning Modal */}
       <ConfirmModal
-        open={showUnvisitedModal}
-        onOpenChange={setShowUnvisitedModal}
+        open={showIncompleteModal}
+        onOpenChange={setShowIncompleteModal}
         title="Some documents are incomplete"
-        description={`Please complete all documents before proceeding. The following documents are not completed: ${unvisitedDocs.map(d => d.name).join(', ')}`}
+        description={`Please complete the following documents before proceeding: ${[...getMissingAnonymization(), ...getMissingDigitization()].join(', ')}`}
         confirmLabel="Go Back & Complete"
         cancelLabel=""
-        onConfirm={handleGoBackToIncomplete}
-        onCancel={() => setShowUnvisitedModal(false)}
+        onConfirm={handleGoBackFromIncomplete}
+        onCancel={() => setShowIncompleteModal(false)}
       />
 
       {/* Submit Confirmation Modal */}
@@ -362,18 +472,6 @@ const FilePreview = () => {
         cancelLabel="Go Back"
         onConfirm={handleModifyCase}
         onCancel={handleGoBackFromModify}
-      />
-
-      {/* Incomplete Files Warning Modal (Edit Mode) */}
-      <ConfirmModal
-        open={showIncompleteModal}
-        onOpenChange={setShowIncompleteModal}
-        title="Some documents are incomplete"
-        description={`Please complete all documents before modifying the case. The following documents are not completed: ${progressList.filter(p => !p.visited).map(p => p.name).join(', ')}`}
-        confirmLabel="Go Back & Complete"
-        cancelLabel=""
-        onConfirm={handleGoBackFromIncomplete}
-        onCancel={() => setShowIncompleteModal(false)}
       />
     </div>
   );

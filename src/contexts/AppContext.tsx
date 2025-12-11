@@ -39,6 +39,18 @@ interface AppContextType {
   sendGroupMessage: (caseId: string, content: string) => void;
   clearUploadedFiles: () => void;
   updateUser: (updates: Partial<User>) => void;
+  markFileAsEdited: (fileId: string) => void;
+  // Visited flag management
+  setAnonymizedVisited: (fileId: string, visited: boolean) => void;
+  setDigitizedVisited: (fileId: string, visited: boolean) => void;
+  markAnonymizedVisited: (fileId: string) => void;
+  markDigitizedVisited: (fileId: string) => void;
+  markAnonymizedDirty: (fileId: string) => void;
+  markDigitizedDirty: (fileId: string) => void;
+  getMissingAnonymization: (files?: UploadedFile[]) => string[];
+  getMissingDigitization: (files?: UploadedFile[]) => string[];
+  isCreateValid: () => boolean;
+  isModifyValid: () => boolean;
   // MTB functions
   createMTB: (name: string, dpImage: string | null, caseIds: string[]) => MTB | null;
   deleteMTB: (mtbId: string) => void;
@@ -124,13 +136,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setCurrentPatient = (patient: PatientData) => {
-    setState(prev => ({ ...prev, currentPatient: patient }));
+    setState(prev => {
+      // When starting a new case (not in edit mode), clear all upload-related state
+      const isNewCase = !prev.isEditMode;
+      return {
+        ...prev,
+        currentPatient: patient,
+        // Clear upload state for new case creation
+        ...(isNewCase ? {
+          uploadedFiles: [],
+          editedFileIds: [],
+          originalFiles: [],
+        } : {}),
+      };
+    });
   };
 
   const addUploadedFile = (file: UploadedFile) => {
+    const now = new Date().toISOString();
+    const fileWithDefaults: UploadedFile = {
+      ...file,
+      mimeType: file.type,
+      createdAt: now,
+      uploadedAt: now,
+      anonymizedVisited: false,
+      digitizedVisited: false,
+      visited: false,
+      dirty: false,
+    };
     setState(prev => ({
       ...prev,
-      uploadedFiles: [...prev.uploadedFiles, file],
+      uploadedFiles: [...prev.uploadedFiles, fileWithDefaults],
     }));
   };
 
@@ -169,21 +205,83 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const updateAnonymizedImage = (id: string, anonymizedDataURL: string) => {
-    setState(prev => ({
-      ...prev,
-      uploadedFiles: prev.uploadedFiles.map(f =>
-        f.id === id ? { ...f, anonymizedDataURL } : f
-      ),
-    }));
+    const now = new Date().toISOString();
+    setState(prev => {
+      const file = prev.uploadedFiles.find(f => f.id === id);
+      const currentAnonymizedVisited = file?.anonymizedVisited === true;
+      const isEditMode = prev.isEditMode;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[updateAnonymizedImage] file edited', id, {
+          currentAnonymizedVisited,
+          isEditMode,
+          willKeepAnonymizedVisited: currentAnonymizedVisited,
+        });
+      }
+      
+      return {
+        ...prev,
+        uploadedFiles: prev.uploadedFiles.map(f =>
+          f.id === id 
+            ? { 
+                ...f, 
+                anonymizedDataURL,
+                anonymizedChangedAt: now,
+                // IMPORTANT: In CREATE mode, once a file is marked as visited (by navigating to it),
+                // it should stay visited even after edits. Edits should NOT reset the visited state.
+                // In EDIT mode, apply the same logic: if already visited, stay visited.
+                // The visited state is determined only by whether the user has navigated to the file.
+                anonymizedVisited: currentAnonymizedVisited,
+                // Always clear digitization when anonymization changes
+                digitizedVisited: false,
+                dirty: true,
+                lastModifiedAt: now,
+              } 
+            : f
+        ),
+      };
+    });
   };
 
   const updateAnonymizedPDFPages = (id: string, anonymizedPages: string[]) => {
-    setState(prev => ({
-      ...prev,
-      uploadedFiles: prev.uploadedFiles.map(f =>
-        f.id === id ? { ...f, anonymizedPages } : f
-      ),
-    }));
+    const now = new Date().toISOString();
+    setState(prev => {
+      const file = prev.uploadedFiles.find(f => f.id === id);
+      const currentAnonymizedVisited = file?.anonymizedVisited === true;
+      const isEditMode = prev.isEditMode;
+      
+      return {
+        ...prev,
+        uploadedFiles: prev.uploadedFiles.map(f =>
+          f.id === id 
+            ? { 
+                ...f, 
+                anonymizedPages,
+                anonymizedChangedAt: now,
+                // IMPORTANT: In CREATE mode, once a file is marked as visited (by navigating to it),
+                // it should stay visited even after edits. Edits should NOT reset the visited state.
+                // In EDIT mode, apply the same logic: if already visited, stay visited.
+                // The visited state is determined only by whether the user has navigated to the file.
+                anonymizedVisited: currentAnonymizedVisited,
+                // Always clear digitization when anonymization changes
+                digitizedVisited: false,
+                dirty: true,
+                lastModifiedAt: now,
+              } 
+            : f
+        ),
+      };
+    });
+    
+    if (process.env.NODE_ENV === 'development') {
+      const file = state.uploadedFiles.find(f => f.id === id);
+      console.debug('[updateAnonymizedPDFPages] file edited', id, {
+        currentAnonymizedVisited: file?.anonymizedVisited === true,
+        isEditMode: state.isEditMode,
+        anonymizedVisited: file?.anonymizedVisited === true,
+        digitizedVisited: false,
+      });
+    }
   };
 
   const updatePDFPages = (id: string, pdfPages: string[]) => {
@@ -264,7 +362,125 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const clearUploadedFiles = () => {
-    setState(prev => ({ ...prev, uploadedFiles: [] }));
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: [],
+      editedFileIds: [],
+      originalFiles: [],
+      // Only clear edit mode flags if not actively editing a case
+      ...(prev.editingCaseId === null ? {
+        isEditMode: false,
+        editingCaseId: null,
+      } : {}),
+    }));
+  };
+
+  const markFileAsEdited = (fileId: string) => {
+    setState(prev => ({
+      ...prev,
+      editedFileIds: Array.from(new Set([...prev.editedFileIds, fileId])),
+    }));
+  };
+
+  const setAnonymizedVisited = (fileId: string, visited: boolean) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId ? { ...f, anonymizedVisited: visited } : f
+      ),
+    }));
+  };
+
+  const setDigitizedVisited = (fileId: string, visited: boolean) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId ? { ...f, digitizedVisited: visited } : f
+      ),
+    }));
+  };
+
+  const getMissingAnonymization = (files?: UploadedFile[]): string[] => {
+    const filesToCheck = files || state.uploadedFiles;
+    return filesToCheck
+      .filter(f => !f.anonymizedVisited)
+      .map(f => f.name);
+  };
+
+  const getMissingDigitization = (files?: UploadedFile[]): string[] => {
+    const filesToCheck = files || state.uploadedFiles;
+    return filesToCheck
+      .filter(f => !f.digitizedVisited)
+      .map(f => f.name);
+  };
+
+  // Mark file as visited (for anonymization) with dirty flag management
+  const markAnonymizedVisited = (fileId: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId 
+          ? { ...f, anonymizedVisited: true, dirty: false, lastVisitedAt: Date.now() }
+          : f
+      ),
+    }));
+  };
+
+  // Mark file as visited (for digitization) with dirty flag management
+  const markDigitizedVisited = (fileId: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId 
+          ? { ...f, digitizedVisited: true, dirty: false, lastVisitedAt: Date.now() }
+          : f
+      ),
+    }));
+  };
+
+  // Mark file as dirty and clear visited (for anonymization edits)
+  const markAnonymizedDirty = (fileId: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId 
+          ? { ...f, anonymizedVisited: false, dirty: true }
+          : f
+      ),
+    }));
+  };
+
+  // Mark file as dirty and clear visited (for digitization edits)
+  const markDigitizedDirty = (fileId: string) => {
+    setState(prev => ({
+      ...prev,
+      uploadedFiles: prev.uploadedFiles.map(f =>
+        f.id === fileId 
+          ? { ...f, digitizedVisited: false, dirty: true }
+          : f
+      ),
+    }));
+  };
+
+  const isCreateValid = (): boolean => {
+    return state.uploadedFiles.every(f => f.anonymizedVisited && f.digitizedVisited);
+  };
+
+  const isModifyValid = (): boolean => {
+    // In modify mode, only files that were added or changed need to be visited
+    // For now, we'll check all files that don't have both flags set
+    // This can be refined based on tracking which files were actually modified
+    return state.uploadedFiles.every(f => {
+      // If file was in original files and not edited, it's valid
+      if (state.isEditMode && state.originalFiles.some(orig => orig.id === f.id)) {
+        const wasEdited = state.editedFileIds.includes(f.id);
+        if (!wasEdited) {
+          return true; // Original file that wasn't edited is valid
+        }
+      }
+      // New files or edited files need both flags
+      return f.anonymizedVisited && f.digitizedVisited;
+    });
   };
 
   const loadCaseForEditing = (caseId: string): boolean => {
@@ -272,10 +488,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!caseToEdit) return false;
 
     // Load case's patient data and files for editing
+    // Initialize visited flags for existing files (they're already visited)
+    const filesWithFlags = caseToEdit.files.map(file => ({
+      ...file,
+      anonymizedVisited: file.anonymizedVisited ?? true, // Default to true for existing files
+      digitizedVisited: file.digitizedVisited ?? true, // Default to true for existing files
+    }));
+
     setState(prev => ({
       ...prev,
       currentPatient: caseToEdit.patient,
-      uploadedFiles: caseToEdit.files,
+      uploadedFiles: filesWithFlags,
       isEditMode: true,
       editingCaseId: caseId,
       originalFiles: [...caseToEdit.files],
@@ -307,6 +530,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         originalFiles: [],
         currentPatient: null,
         uploadedFiles: [],
+        editedFileIds: [],
       };
     });
 
@@ -580,6 +804,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         sendGroupMessage,
         clearUploadedFiles,
         updateUser,
+        markFileAsEdited,
+        setAnonymizedVisited,
+        setDigitizedVisited,
+        markAnonymizedVisited,
+        markDigitizedVisited,
+        markAnonymizedDirty,
+        markDigitizedDirty,
+        getMissingAnonymization,
+        getMissingDigitization,
+        isCreateValid,
+        isModifyValid,
         createMTB,
         deleteMTB,
         removeExpertFromMTB,

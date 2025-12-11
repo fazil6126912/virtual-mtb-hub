@@ -126,10 +126,12 @@ const AddCaseToMTBModal = ({ open, onOpenChange, onAddCases }: AddCaseToMTBModal
                       key={caseItem.id}
                       type="button"
                       onClick={() => addCase(caseItem.id)}
-                      className="w-full px-3 py-2 text-left hover:bg-accent text-sm transition-colors"
+                      className="group w-full px-3 py-2 text-left hover:bg-accent transition-colors"
                     >
-                      <div className="font-medium">{caseItem.caseName}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="font-medium text-sm group-hover:text-white">
+                        {caseItem.caseName}
+                      </div>
+                      <div className="text-xs text-muted-foreground group-hover:text-white/80">
                         {caseItem.patient.name} - {caseItem.patient.cancerType}
                       </div>
                     </button>

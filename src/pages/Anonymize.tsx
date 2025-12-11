@@ -29,12 +29,6 @@ interface RedactionShape {
   thickness?: number;
 }
 
-interface FileProgress {
-  id: string;
-  name: string;
-  visited: boolean;
-}
-
 /**
  * Anonymize page - allows users to redact sensitive information from documents
  * before digitization. Users can draw rectangles, ellipses, or freehand strokes.
@@ -43,8 +37,15 @@ interface FileProgress {
 const Anonymize = () => {
   const { fileIndex } = useParams();
   const navigate = useNavigate();
-  const { state, updateAnonymizedImage, updateAnonymizedPDFPages } = useApp();
-  const isEditMode = state.isEditMode;
+  const { 
+    state, 
+    updateAnonymizedImage, 
+    updateAnonymizedPDFPages, 
+    markFileAsEdited,
+    markAnonymizedVisited,
+    getMissingAnonymization,
+  } = useApp();
+  const mode = state.isEditMode ? 'MODIFY' : 'CREATE';
   
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -69,40 +70,34 @@ const Anonymize = () => {
   const [currentPdfPageIndex, setCurrentPdfPageIndex] = useState(0);
   const [totalPdfPages, setTotalPdfPages] = useState(0);
 
-  // Track files that have been edited in this session
-  const [editedFileIds, setEditedFileIds] = useState<Set<string>>(new Set());
-
-  // Visit verification (skip in edit mode for unchanged files)
-  const [progressList, setProgressList] = useState<FileProgress[]>(() => {
-    if (isEditMode) {
-      // In edit mode, mark original files as visited, new files as not visited
-      return state.uploadedFiles.map(file => ({
-        id: file.id,
-        name: file.name,
-        visited: state.originalFiles.some(orig => orig.id === file.id) && !editedFileIds.has(file.id),
-      }));
-    }
-    return state.uploadedFiles.map(file => ({ id: file.id, name: file.name, visited: false }));
-  });
-  const [showUnvisitedModal, setShowUnvisitedModal] = useState(false);
-  const [showIncompleteEditModal, setShowIncompleteEditModal] = useState(false);
+  const [showIncompleteModal, setShowIncompleteModal] = useState(false);
   const [triggerShake, setTriggerShake] = useState(false);
 
   const strokeSizeValues = { small: 8, medium: 16, large: 24 };
 
-  // Mark current document as visited when landing on it (unless edit mode and original file)
-  useEffect(() => {
-    if (isEditMode && state.originalFiles.some(f => f.id === currentFile?.id)) {
-      // Don't require re-visit for unchanged original files
-      return;
+  // Debug logging (dev-only)
+  const logVisitedState = (reason: string) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Anonymize] visited-state', reason, {
+        currentIndex,
+        currentFile: currentFile?.name,
+        files: state.uploadedFiles.map(f => ({
+          name: f.name,
+          anonymizedVisited: f.anonymizedVisited,
+          dirty: f.dirty,
+          lastVisitedAt: f.lastVisitedAt,
+        })),
+      });
     }
-    setProgressList(prev =>
-      prev.map(p => p.id === currentFile?.id ? { ...p, visited: true } : p)
-    );
-  }, [currentIndex, currentFile?.id, isEditMode]);
+  };
 
-  const allDocsVisited = progressList.every(p => p.visited);
-  const unvisitedDocs = progressList.filter(p => !p.visited);
+  // Mark file as visited immediately when user views it (via navigation, dropdown, etc.)
+  useEffect(() => {
+    if (currentFile) {
+      markAnonymizedVisited(currentFile.id);
+      logVisitedState(`file viewed: ${currentFile.name}`);
+    }
+  }, [currentIndex, currentFile?.id]);
 
   // Set up PDF.js worker with proper path
   useEffect(() => {
@@ -555,9 +550,14 @@ const Anonymize = () => {
       updateAnonymizedImage(currentFile.id, anonymizedDataURL);
     }
 
+    // Note: updateAnonymizedImage/updateAnonymizedPDFPages now handle the visited flags:
+    // - In edit mode: keeps anonymizedVisited=true, sets digitizedVisited=false
+    // - In create mode: sets anonymizedVisited=false, sets digitizedVisited=false
+    logVisitedState(`file edited (anonymized): ${currentFile.name}`);
+
     // Mark file as edited in edit mode
-    if (isEditMode) {
-      setEditedFileIds(prev => new Set([...prev, currentFile.id]));
+    if (mode === 'MODIFY') {
+      markFileAsEdited(currentFile.id);
     }
 
     // Clear shapes after anonymization
@@ -567,51 +567,52 @@ const Anonymize = () => {
 
   const handleNext = () => {
     if (isLastFile) {
-      // In create mode, check if all documents have been visited
-      if (!isEditMode && !allDocsVisited) {
-        setTriggerShake(true);
-        setTimeout(() => setTriggerShake(false), 500);
-        setShowUnvisitedModal(true);
-        return;
-      }
-      
-      // In edit mode, warn if edited files haven't been anonymized
-      if (isEditMode) {
-        const incompleteFiles = progressList.filter(p => !p.visited);
-        if (incompleteFiles.length > 0) {
-          setTriggerShake(true);
-          setTimeout(() => setTriggerShake(false), 500);
-          setShowIncompleteEditModal(true);
-          return;
-        }
-      }
-      
-      // Navigate directly to digitization
-      navigate('/upload/preview/0');
+      // On last file, "Next" should go to digitization
+      handleGoToDigitization();
     } else {
       navigate(`/upload/anonymize/${currentIndex + 1}`);
     }
   };
 
-  const handleGoBackToIncomplete = () => {
-    setShowUnvisitedModal(false);
-    const firstUnvisited = unvisitedDocs[0];
-    if (firstUnvisited) {
-      const index = state.uploadedFiles.findIndex(f => f.id === firstUnvisited.id);
-      if (index >= 0) {
-        navigate(`/upload/anonymize/${index}`);
-      }
+  const handleGoToDigitization = () => {
+    // Use functional update to mark current file as visited and validate atomically
+    // This ensures we validate against the latest state, not a stale closure
+    const updatedFiles = state.uploadedFiles.map((f, i) =>
+      i === currentIndex 
+        ? { ...f, anonymizedVisited: true, dirty: false, lastVisitedAt: Date.now() }
+        : f
+    );
+    
+    logVisitedState('before final validation (Go to Digitization)');
+    
+    // Validate using the updated files array
+    const missingFiles = getMissingAnonymization(updatedFiles);
+    if (missingFiles.length > 0) {
+      setTriggerShake(true);
+      setTimeout(() => setTriggerShake(false), 300);
+      setShowIncompleteModal(true);
+      logVisitedState(`validation failed: missing ${missingFiles.length} files`);
+      return;
     }
+    
+    // Update state with visited flag
+    markAnonymizedVisited(currentFile.id);
+    logVisitedState('validation passed, proceeding to digitization');
+    
+    // Navigate to digitization
+    navigate('/upload/preview/0');
   };
 
-  const handleGoBackToIncompleteEdit = () => {
-    setShowIncompleteEditModal(false);
-    const incompleteFiles = progressList.filter(p => !p.visited);
-    if (incompleteFiles.length > 0) {
-      const firstIncomplete = incompleteFiles[0];
-      const index = state.uploadedFiles.findIndex(f => f.id === firstIncomplete.id);
-      if (index >= 0) {
-        navigate(`/upload/anonymize/${index}`);
+  const handleGoBackToIncomplete = () => {
+    setShowIncompleteModal(false);
+    const missingFiles = getMissingAnonymization();
+    if (missingFiles.length > 0) {
+      const firstMissing = state.uploadedFiles.find(f => missingFiles.includes(f.name));
+      if (firstMissing) {
+        const index = state.uploadedFiles.findIndex(f => f.id === firstMissing.id);
+        if (index >= 0) {
+          navigate(`/upload/anonymize/${index}`);
+        }
       }
     }
   };
@@ -623,6 +624,7 @@ const Anonymize = () => {
   };
 
   const handleFileSelect = (index: number) => {
+    // Navigation will trigger useEffect which marks file as visited
     navigate(`/upload/anonymize/${index}`);
   };
 
@@ -665,25 +667,22 @@ const Anonymize = () => {
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="max-h-60 overflow-y-auto">
-                {state.uploadedFiles.map((file, index) => {
-                  const fileProgress = progressList.find(p => p.id === file.id);
-                  return (
-                    <DropdownMenuItem
-                      key={file.id}
-                      onClick={() => handleFileSelect(index)}
-                      className={index === currentIndex ? 'bg-primary/10' : ''}
-                    >
-                      <div className="flex items-center justify-between gap-3 w-full group">
-                        <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>
-                          {file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}
-                        </span>
-                        {fileProgress?.visited && (
-                          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 group-hover:text-white transition-colors" />
-                        )}
-                      </div>
-                    </DropdownMenuItem>
-                  );
-                })}
+                {state.uploadedFiles.map((file, index) => (
+                  <DropdownMenuItem
+                    key={file.id}
+                    onClick={() => handleFileSelect(index)}
+                    className={index === currentIndex ? 'bg-primary/10' : ''}
+                  >
+                    <div className="flex items-center justify-between gap-3 w-full group">
+                      <span className={file.name.length > 100 ? 'truncate max-w-[200px]' : ''}>
+                        {file.name.length > 100 ? file.name.substring(0, 97) + '...' : file.name}
+                      </span>
+                      {file.anonymizedVisited && (
+                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 file-row-tick" />
+                      )}
+                    </div>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -692,8 +691,7 @@ const Anonymize = () => {
               {currentFile.fileCategory}
             </span>
           </div>
-
-          {/* Right: Previous and Next */}
+          {/* Right: Buttons based on CREATE vs MODIFY mode */}
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrevious}
@@ -704,14 +702,51 @@ const Anonymize = () => {
               <ArrowLeft className="w-3.5 h-3.5" />
               Previous
             </button>
-            <button 
-              onClick={handleNext} 
-              className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
-              aria-label={isLastFile ? 'Go to digitization' : 'Next file'}
-            >
-              {isLastFile ? 'Go to Digitization' : 'Next'}
-              {!isLastFile && <ArrowRight className="w-3.5 h-3.5" />}
-            </button>
+            {mode === 'CREATE' ? (
+              // CREATE mode: Next on non-last, Go to Digitization on last
+              <>
+                {!isLastFile && (
+                  <button 
+                    onClick={handleNext} 
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Next file"
+                  >
+                    Next
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {isLastFile && (
+                  <button
+                    onClick={handleGoToDigitization}
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Go to digitization"
+                  >
+                    Go to Digitization
+                  </button>
+                )}
+              </>
+            ) : (
+              // MODIFY mode: Next on non-last, Go to Digitization always visible
+              <>
+                {!isLastFile && (
+                  <button 
+                    onClick={handleNext} 
+                    className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                    aria-label="Next file"
+                  >
+                    Next
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  onClick={handleGoToDigitization}
+                  className="vmtb-btn-primary flex items-center gap-1 px-2.5 py-1 text-xs flex-shrink-0"
+                  aria-label="Go to digitization"
+                >
+                  Go to Digitization
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -951,28 +986,16 @@ const Anonymize = () => {
         </div>
       </main>
 
-      {/* Unvisited Documents Warning Modal */}
+      {/* Incomplete Documents Warning Modal */}
       <ConfirmModal
-        open={showUnvisitedModal}
-        onOpenChange={setShowUnvisitedModal}
+        open={showIncompleteModal}
+        onOpenChange={setShowIncompleteModal}
         title="Some documents are incomplete"
-        description={`Please complete all documents before proceeding. The following documents are not completed: ${unvisitedDocs.map(d => d.name).join(', ')}`}
+        description={`Please complete the following documents before proceeding: ${getMissingAnonymization().join(', ')}`}
         confirmLabel="Go Back & Complete"
         cancelLabel=""
         onConfirm={handleGoBackToIncomplete}
-        onCancel={() => setShowUnvisitedModal(false)}
-      />
-
-      {/* Incomplete Files Warning Modal (Edit Mode) */}
-      <ConfirmModal
-        open={showIncompleteEditModal}
-        onOpenChange={setShowIncompleteEditModal}
-        title="Some documents are incomplete"
-        description={`Please anonymize all documents before proceeding to digitization. The following documents are not completed: ${progressList.filter(p => !p.visited).map(p => p.name).join(', ')}`}
-        confirmLabel="Go Back & Complete"
-        cancelLabel=""
-        onConfirm={handleGoBackToIncompleteEdit}
-        onCancel={() => setShowIncompleteEditModal(false)}
+        onCancel={() => setShowIncompleteModal(false)}
       />
     </div>
   );
