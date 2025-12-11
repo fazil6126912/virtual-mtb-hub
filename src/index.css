@@ -310,4 +310,206 @@
   .hover\:bg-accent:hover .text-muted-foreground {
     color: rgba(255, 255, 255, 0.8) !important;
   }
+
+  /* ===========================
+     HOMEPAGE REDESIGN STYLES
+     =========================== */
+
+  .bg-home-page {
+    background-color: #f6f8fa;
+  }
+
+  /* Form Card Styling */
+  .home-form-card {
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .home-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .home-form-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .home-form-input {
+    height: 44px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14px;
+    color: #1a1a1a;
+    font-family: inherit;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .home-form-input::placeholder {
+    color: #9ca3af;
+  }
+
+  .home-form-input:focus {
+    outline: none;
+    border-color: #25ae82;
+    box-shadow: 0 0 0 3px rgba(37, 174, 130, 0.1);
+  }
+
+  .home-form-input:focus-visible {
+    outline: none;
+  }
+
+  .home-form-helper {
+    font-size: 12px;
+    font-weight: 400;
+    color: #6b7280;
+  }
+
+  /* Next Button */
+  .home-btn-next {
+    height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(to right, #1cb881, #14a36b);
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: transform 200ms ease, box-shadow 200ms ease;
+    margin-top: 8px;
+  }
+
+  .home-btn-next:hover {
+    transform: scale(1.01);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .home-btn-next:active {
+    transform: scale(0.99);
+  }
+
+  .home-btn-next:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Illustration Box */
+  .home-illustration-box {
+    width: 180px;
+    height: 180px;
+    background: rgba(37, 174, 130, 0.1);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Right Column Heading */
+  .home-heading {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 32px;
+    max-width: 420px;
+    line-height: 1.4;
+    text-align: center;
+  }
+
+  /* Right Column Subtext */
+  .home-subtext {
+    font-size: 15px;
+    font-weight: 400;
+    color: #6b7280;
+    margin-top: 8px;
+    max-width: 380px;
+    line-height: 1.6;
+    text-align: center;
+  }
+
+  /* Accent Underline */
+  .home-accent-bar {
+    width: 42px;
+    height: 4px;
+    background: #25ae82;
+    border-radius: 2px;
+    margin-top: 16px;
+  }
+
+  /* Tablet Responsiveness */
+  @media (max-width: 1024px) and (min-width: 768px) {
+    .home-form-card {
+      padding: 24px;
+    }
+
+    .home-illustration-box {
+      width: 160px;
+      height: 160px;
+    }
+
+    .home-heading {
+      font-size: 22px;
+      max-width: 350px;
+    }
+
+    .home-subtext {
+      font-size: 14px;
+      max-width: 320px;
+    }
+  }
+
+  /* Mobile Responsiveness */
+  @media (max-width: 767px) {
+    .home-form-card {
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .home-form-label {
+      font-size: 13px;
+    }
+
+    .home-form-input {
+      height: 40px;
+      padding: 10px;
+      font-size: 13px;
+    }
+
+    .home-form-helper {
+      font-size: 11px;
+    }
+
+    .home-btn-next {
+      height: 44px;
+      font-size: 15px;
+    }
+
+    .home-illustration-box {
+      width: 140px;
+      height: 140px;
+      margin-top: 2rem;
+    }
+
+    .home-heading {
+      font-size: 20px;
+      max-width: 100%;
+      margin-top: 20px;
+    }
+
+    .home-subtext {
+      font-size: 14px;
+      max-width: 100%;
+    }
+  }
 }
+

@@ -35,47 +35,55 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="min-h-screen bg-home-page relative overflow-hidden">
+      {/* Radial gradient accent on right side */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(circle at center right, rgba(33, 150, 243, 0.08) 0%, rgba(33, 150, 243, 0) 60%)'
+      }} />
+      
       <Header />
       
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left: Form */}
-          <form onSubmit={handleSubmit} className="animate-fade-in">
-            <div className="vmtb-card p-8 space-y-6">
-              <div>
-                <label className="block text-foreground font-medium mb-2">Name</label>
+      <main className="relative z-10 max-w-6xl mx-auto px-10 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-8 items-stretch min-h-[calc(100vh-200px)]">
+          {/* Left Column: Form Card */}
+          <form onSubmit={handleSubmit} className="animate-fade-in flex flex-col justify-center">
+            <div className="home-form-card">
+              {/* Name Field */}
+              <div className="home-form-field">
+                <label className="home-form-label">Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="vmtb-input"
+                  className="home-form-input"
                   placeholder="Patient name"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="home-form-helper">
                   This patient name will remain anonymized and will not be shared with any MTB.
                 </p>
               </div>
 
-              <div>
-                <label className="block text-foreground font-medium mb-2">Age</label>
+              {/* Age Field */}
+              <div className="home-form-field">
+                <label className="home-form-label">Age</label>
                 <input
                   type="number"
                   value={age}
                   onChange={e => setAge(e.target.value)}
-                  className="vmtb-input"
+                  className="home-form-input"
                   placeholder="Patient age"
                   min="0"
                   max="150"
                 />
               </div>
 
-              <div>
-                <label className="block text-foreground font-medium mb-2">Sex</label>
+              {/* Sex Field */}
+              <div className="home-form-field">
+                <label className="home-form-label">Sex</label>
                 <select
                   value={sex}
                   onChange={e => setSex(e.target.value)}
-                  className="vmtb-input"
+                  className="home-form-input"
                 >
                   <option value="">Select sex</option>
                   <option value="Male">Male</option>
@@ -84,76 +92,71 @@ const Home = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-foreground font-medium mb-2">Cancer Type</label>
+              {/* Cancer Type Field */}
+              <div className="home-form-field">
+                <label className="home-form-label">Cancer Type</label>
                 <input
                   type="text"
                   value={cancerType}
                   onChange={e => setCancerType(e.target.value)}
-                  className="vmtb-input"
+                  className="home-form-input"
                   placeholder="e.g., Lung Cancer"
                 />
               </div>
 
-              <div>
-                <label className="block text-foreground font-medium mb-2">Case Name</label>
+              {/* Case Name Field */}
+              <div className="home-form-field">
+                <label className="home-form-label">Case Name</label>
                 <input
                   type="text"
                   value={caseName}
                   onChange={e => setCaseName(e.target.value)}
-                  className="vmtb-input"
+                  className="home-form-input"
                   placeholder="Enter a unique case name"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="home-form-helper">
                   When you share this case with any MTB, the case will be referenced using this name.
                 </p>
               </div>
 
-              <button type="submit" className="vmtb-btn-primary w-full">
+              {/* Next Button */}
+              <button type="submit" className="home-btn-next">
                 Next
               </button>
             </div>
           </form>
 
-          {/* Right: Illustration & Message */}
-          <div className="hidden lg:flex flex-col items-center justify-center py-12 animate-fade-in px-8">
-            <div className="relative w-full h-64 mb-8">
-              {/* Decorative circles and shapes */}
-              <div className="absolute top-0 right-0 w-40 h-40 bg-vmtb-green/5 rounded-full blur-3xl animate-pulse" />
-              <div className="absolute bottom-10 left-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '1s' }} />
-              
-              {/* Center illustration with gradient */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="relative">
-                  {/* Main icon background */}
-                  <div className="w-32 h-32 bg-gradient-to-br from-vmtb-green/20 to-primary/20 rounded-2xl flex items-center justify-center animate-float" style={{ animation: 'float 3s ease-in-out infinite' }}>
-                    <svg
-                      className="w-16 h-16 text-vmtb-green"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
+          {/* Right Column: Illustration & Tagline */}
+          <div className="hidden lg:flex flex-col items-center justify-center animate-fade-in">
+            {/* Illustration Box */}
+            <div className="home-illustration-box">
+              <svg
+                className="w-20 h-20 text-primary"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
             </div>
 
-            <h3 className="text-lg font-semibold text-foreground text-center mb-3">
+            {/* Heading */}
+            <h2 className="home-heading">
               Organize cases effortlessly with your virtual MTB workspace.
-            </h3>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
+            </h2>
+
+            {/* Subtext */}
+            <p className="home-subtext">
               Create, manage, and collaborate on medical cases with ease.
             </p>
 
-            {/* Decorative line */}
-            <div className="mt-8 w-12 h-1 bg-gradient-to-r from-vmtb-green to-primary rounded-full" />
+            {/* Accent Underline */}
+            <div className="home-accent-bar" />
           </div>
         </div>
       </main>
@@ -162,6 +165,31 @@ const Home = () => {
         @keyframes float {
           0%, 100% { transform: translateY(0px); }
           50% { transform: translateY(-8px); }
+        }
+
+        @media (max-width: 1024px) {
+          main {
+            padding-top: 4rem;
+            padding-bottom: 4rem;
+          }
+        }
+
+        @media (max-width: 768px) {
+          main {
+            padding-left: 1rem;
+            padding-right: 1rem;
+          }
+
+          .grid {
+            grid-template-columns: 1fr !important;
+            min-height: auto !important;
+          }
+
+          .hidden.lg\\:flex {
+            display: flex !important;
+            width: 100%;
+            margin-top: 2rem;
+          }
         }
       `}</style>
     </div>
