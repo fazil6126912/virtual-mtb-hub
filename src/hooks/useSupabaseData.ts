@@ -133,27 +133,42 @@ export function useSupabaseData() {
     }
   }, [user]);
 
-  // Upload a file to storage and return the URL
+  // Upload a file to storage and return signed URL (private bucket)
   const uploadFileToStorage = async (
     file: UploadedFile,
     caseId: string
-  ): Promise<{ storagePath: string; publicUrl: string } | null> => {
-    if (!user) return null;
+  ): Promise<{ storagePath: string; signedUrl: string } | null> => {
+    if (!user) {
+      console.error('[uploadFileToStorage] No user found');
+      return null;
+    }
 
     try {
-      // Convert dataURL to blob
+      // Convert dataURL to blob - use anonymized version if available
       const dataURL = file.anonymizedDataURL || file.dataURL;
-      if (!dataURL) return null;
+      if (!dataURL) {
+        console.error('[uploadFileToStorage] No dataURL found for file:', file.name);
+        return null;
+      }
 
+      // Skip blob: URLs as they can't be fetched
+      if (dataURL.startsWith('blob:')) {
+        console.warn('[uploadFileToStorage] Skipping blob URL for file:', file.name);
+        return null;
+      }
+
+      console.log('[uploadFileToStorage] Converting dataURL to blob for:', file.name);
       const response = await fetch(dataURL);
       const blob = await response.blob();
+      console.log('[uploadFileToStorage] Blob created, size:', blob.size);
 
       // Generate storage path: userId/caseId/fileName
       const fileExt = file.name.split('.').pop() || 'png';
       const storagePath = `${user.id}/${caseId}/${file.id}.${fileExt}`;
+      console.log('[uploadFileToStorage] Uploading to path:', storagePath);
 
       // Upload to storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('case-documents')
         .upload(storagePath, blob, {
           contentType: file.type,
@@ -161,21 +176,30 @@ export function useSupabaseData() {
         });
 
       if (uploadError) {
-        console.error('Storage upload error:', uploadError);
+        console.error('[uploadFileToStorage] Storage upload error:', uploadError);
         return null;
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('case-documents')
-        .getPublicUrl(storagePath);
+      console.log('[uploadFileToStorage] Upload successful:', uploadData);
 
+      // Get signed URL for private bucket (1 hour expiry for immediate use)
+      const { data: signedData, error: signedError } = await supabase.storage
+        .from('case-documents')
+        .createSignedUrl(storagePath, 3600);
+
+      if (signedError) {
+        console.error('[uploadFileToStorage] Signed URL error:', signedError);
+        // Return path even without signed URL
+        return { storagePath, signedUrl: '' };
+      }
+
+      console.log('[uploadFileToStorage] Signed URL created successfully');
       return {
         storagePath,
-        publicUrl: urlData.publicUrl,
+        signedUrl: signedData?.signedUrl || '',
       };
     } catch (err) {
-      console.error('Error uploading file:', err);
+      console.error('[uploadFileToStorage] Error uploading file:', err);
       return null;
     }
   };
@@ -186,13 +210,20 @@ export function useSupabaseData() {
     files: UploadedFile[],
     clinicalSummary?: string
   ): Promise<FullCase | null> => {
+    console.log('=== [createPatientAndCase] START ===');
+    console.log('[createPatientAndCase] User:', user?.id);
+    console.log('[createPatientAndCase] Patient data:', patientData);
+    console.log('[createPatientAndCase] Files count:', files.length);
+
     if (!user) {
+      console.error('[createPatientAndCase] No user logged in');
       toast.error('You must be logged in to create a case');
       return null;
     }
 
     try {
       // 1. Create case record first
+      console.log('[createPatientAndCase] Step 1: Creating case record...');
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
         .insert({
@@ -204,9 +235,14 @@ export function useSupabaseData() {
         .select()
         .single();
 
-      if (caseError) throw caseError;
+      if (caseError) {
+        console.error('[createPatientAndCase] Case insert error:', caseError);
+        throw caseError;
+      }
+      console.log('[createPatientAndCase] Case created:', newCase);
 
       // 2. Create patient record linked to case
+      console.log('[createPatientAndCase] Step 2: Creating patient record...');
       const { data: patient, error: patientError } = await supabase
         .from('patients')
         .insert({
@@ -218,13 +254,22 @@ export function useSupabaseData() {
         .select()
         .single();
 
-      if (patientError) throw patientError;
+      if (patientError) {
+        console.error('[createPatientAndCase] Patient insert error:', patientError);
+        throw patientError;
+      }
+      console.log('[createPatientAndCase] Patient created:', patient);
 
       // 3. Upload files to storage and create document records
+      console.log('[createPatientAndCase] Step 3: Processing', files.length, 'documents...');
       const documentRecords = [];
-      for (const file of files) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`[createPatientAndCase] Processing file ${i + 1}/${files.length}:`, file.name);
+        
         // Upload file to storage
         const uploadResult = await uploadFileToStorage(file, newCase.id);
+        console.log('[createPatientAndCase] Upload result:', uploadResult ? 'success' : 'failed');
         
         const isPdf = file.type === 'application/pdf';
         const pageCount = isPdf ? (file.pdfPages?.length || file.anonymizedPages?.length || 1) : 1;
@@ -236,37 +281,53 @@ export function useSupabaseData() {
           file_category: file.fileCategory || null,
           page_count: pageCount,
           storage_path: uploadResult?.storagePath || null,
-          anonymized_file_url: uploadResult?.publicUrl || null,
+          anonymized_file_url: uploadResult?.signedUrl || null,
           digitized_text: file.extractedData || null,
           is_anonymized: file.anonymizedVisited || false,
           is_digitized: file.digitizedVisited || false,
         });
       }
 
+      console.log('[createPatientAndCase] Document records prepared:', documentRecords.length);
+
       if (documentRecords.length > 0) {
+        console.log('[createPatientAndCase] Step 4: Inserting document records...');
         const { data: documents, error: documentsError } = await supabase
           .from('documents')
           .insert(documentRecords)
           .select();
 
-        if (documentsError) throw documentsError;
+        if (documentsError) {
+          console.error('[createPatientAndCase] Documents insert error:', documentsError);
+          throw documentsError;
+        }
+        console.log('[createPatientAndCase] Documents created:', documents?.length);
 
-        // 4. Create edit tracking records for each document
+        // 5. Create edit tracking records for each document
         if (documents && documents.length > 0) {
+          console.log('[createPatientAndCase] Step 5: Creating edit tracking records...');
           const trackingRecords = documents.map(doc => ({
             document_id: doc.id,
             last_edited_stage: 'digitize' as const,
             requires_revisit: false,
           }));
 
-          await supabase
+          const { error: trackingError } = await supabase
             .from('document_edit_tracking')
             .insert(trackingRecords);
+
+          if (trackingError) {
+            console.error('[createPatientAndCase] Tracking insert error:', trackingError);
+            // Non-fatal, continue
+          } else {
+            console.log('[createPatientAndCase] Tracking records created');
+          }
         }
       }
 
-      // 5. Create audit log
-      await supabase
+      // 6. Create audit log
+      console.log('[createPatientAndCase] Step 6: Creating audit log...');
+      const { error: auditError } = await supabase
         .from('audit_logs')
         .insert({
           entity_type: 'case',
@@ -274,6 +335,13 @@ export function useSupabaseData() {
           edited_by: user.id,
           change_summary: `Case "${patientData.caseName || patientData.name}" created with ${files.length} document(s)`,
         });
+
+      if (auditError) {
+        console.error('[createPatientAndCase] Audit log error:', auditError);
+        // Non-fatal, continue
+      } else {
+        console.log('[createPatientAndCase] Audit log created');
+      }
 
       const fullCase: FullCase = {
         id: newCase.id,
@@ -289,11 +357,15 @@ export function useSupabaseData() {
 
       // Update local state
       setCases(prev => [fullCase, ...prev]);
+      
+      console.log('=== [createPatientAndCase] SUCCESS ===');
+      console.log('[createPatientAndCase] Case ID:', newCase.id);
       toast.success('Case created successfully');
 
       return fullCase;
     } catch (err: any) {
-      console.error('Error creating case:', err);
+      console.error('=== [createPatientAndCase] FAILED ===');
+      console.error('[createPatientAndCase] Error:', err);
       if (err?.code === '23505') {
         toast.error('A case with this name already exists');
       } else {
@@ -344,6 +416,7 @@ export function useSupabaseData() {
 
       // Upload and create new file records
       for (const file of newFiles) {
+        console.log('[modifyCase] Creating new document:', file.name);
         const uploadResult = await uploadFileToStorage(file, caseId);
         const isPdf = file.type === 'application/pdf';
 
@@ -356,7 +429,7 @@ export function useSupabaseData() {
             file_category: file.fileCategory || null,
             page_count: isPdf ? (file.pdfPages?.length || 1) : 1,
             storage_path: uploadResult?.storagePath || null,
-            anonymized_file_url: uploadResult?.publicUrl || null,
+            anonymized_file_url: uploadResult?.signedUrl || null,
             digitized_text: file.extractedData || null,
             is_anonymized: file.anonymizedVisited || false,
             is_digitized: file.digitizedVisited || false,
@@ -364,7 +437,10 @@ export function useSupabaseData() {
           .select()
           .single();
 
-        if (docError) throw docError;
+        if (docError) {
+          console.error('[modifyCase] Document insert error:', docError);
+          throw docError;
+        }
 
         // Create edit tracking for new document
         if (newDoc) {
@@ -380,13 +456,14 @@ export function useSupabaseData() {
 
       // Update modified files
       for (const file of modifiedFiles) {
+        console.log('[modifyCase] Updating modified document:', file.name);
         const uploadResult = await uploadFileToStorage(file, caseId);
 
         await supabase
           .from('documents')
           .update({
             storage_path: uploadResult?.storagePath || null,
-            anonymized_file_url: uploadResult?.publicUrl || null,
+            anonymized_file_url: uploadResult?.signedUrl || null,
             digitized_text: file.extractedData || null,
             is_anonymized: file.anonymizedVisited || false,
             is_digitized: file.digitizedVisited || false,
