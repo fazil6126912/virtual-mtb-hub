@@ -40,7 +40,7 @@ const CaseTable = ({
 }: CaseTableProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [caseToDelete, setCaseToDelete] = useState<Case | null>(null);
+  const [caseToDelete, setCaseToDelete] = useState<Case | FullCase | null>(null);
   const navigate = useNavigate();
   const { deleteCase, loadCaseForEditing } = useApp();
 
@@ -54,7 +54,7 @@ const CaseTable = ({
     navigate(`${basePath}/${caseId}`);
   };
 
-  const handleEdit = (caseItem: Case) => {
+  const handleEdit = (caseItem: Case | FullCase) => {
     // Load case for editing and navigate to anonymization workflow
     if (loadCaseForEditing(caseItem.id)) {
       navigate(`/upload/anonymize/0`);
@@ -62,7 +62,7 @@ const CaseTable = ({
     onEditCase?.(caseItem.id);
   };
 
-  const handleDeleteClick = (caseItem: Case) => {
+  const handleDeleteClick = (caseItem: Case | FullCase) => {
     setCaseToDelete(caseItem);
     setDeleteModalOpen(true);
   };

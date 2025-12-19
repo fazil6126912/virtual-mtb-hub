@@ -4,38 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { PatientData, Case, UploadedFile } from '@/lib/storage';
 
-interface DbPatient {
-  id: string;
-  user_id: string;
-  name: string;
-  age: number | null;
-  sex: string | null;
-  cancer_type: string | null;
-  created_at: string;
-}
-
-interface DbCase {
-  id: string;
-  user_id: string;
-  patient_id: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface DbUploadedFile {
-  id: string;
-  case_id: string;
-  user_id: string;
-  name: string;
-  type: string | null;
-  size: number | null;
-  file_category: string | null;
-  extracted_data: Record<string, string> | null;
-  storage_path: string | null;
-  created_at: string;
-}
-
 export interface FullCase {
   id: string;
   caseName: string;
@@ -46,6 +14,22 @@ export interface FullCase {
   createdDate: string;
   clinicalSummary?: string;
   ownerId?: string;
+}
+
+interface DbDocument {
+  id: string;
+  case_id: string;
+  file_name: string;
+  file_type: string;
+  file_category: string | null;
+  page_count: number;
+  storage_path: string | null;
+  anonymized_file_url: string | null;
+  digitized_text: Record<string, string> | null;
+  is_anonymized: boolean;
+  is_digitized: boolean;
+  created_at: string;
+  last_modified_at: string;
 }
 
 export function useSupabaseData() {
@@ -66,11 +50,12 @@ export function useSupabaseData() {
     setError(null);
 
     try {
-      // Fetch cases
+      // Fetch cases with the new schema
       const { data: casesData, error: casesError } = await supabase
         .from('cases')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('created_by', user.id)
+        .eq('status', 'active')
         .order('created_at', { ascending: false });
 
       if (casesError) throw casesError;
@@ -81,52 +66,60 @@ export function useSupabaseData() {
         return;
       }
 
+      const caseIds = casesData.map(c => c.id);
+
       // Fetch patients for these cases
-      const patientIds = [...new Set(casesData.map(c => c.patient_id))];
       const { data: patientsData, error: patientsError } = await supabase
         .from('patients')
         .select('*')
-        .in('id', patientIds);
+        .in('case_id', caseIds);
 
       if (patientsError) throw patientsError;
 
-      // Fetch files for these cases
-      const caseIds = casesData.map(c => c.id);
-      const { data: filesData, error: filesError } = await supabase
-        .from('uploaded_files')
+      // Fetch documents for these cases
+      const { data: documentsData, error: documentsError } = await supabase
+        .from('documents')
         .select('*')
         .in('case_id', caseIds);
 
-      if (filesError) throw filesError;
+      if (documentsError) throw documentsError;
 
       // Build full cases
-      const fullCases: FullCase[] = casesData.map((caseRow: DbCase) => {
-        const patient = patientsData?.find((p: DbPatient) => p.id === caseRow.patient_id);
-        const caseFiles = filesData?.filter((f: DbUploadedFile) => f.case_id === caseRow.id) || [];
+      const fullCases: FullCase[] = casesData.map((caseRow) => {
+        const patient = patientsData?.find(p => p.case_id === caseRow.id);
+        const caseDocuments = (documentsData?.filter((d: DbDocument) => d.case_id === caseRow.id) || []) as DbDocument[];
+
+        // Map status from active to Pending for display
+        let displayStatus: 'Pending' | 'In Review' | 'Completed' = 'Pending';
+        if (caseRow.status === 'archived') {
+          displayStatus = 'Completed';
+        }
 
         return {
           id: caseRow.id,
-          caseName: patient?.name || 'Unknown',
-          patientId: caseRow.patient_id,
+          caseName: caseRow.case_name,
+          patientId: patient?.id || '',
           patient: {
-            name: patient?.name || '',
+            name: patient?.anonymized_name || '',
             age: patient?.age?.toString() || '',
             sex: patient?.sex || '',
-            cancerType: patient?.cancer_type || '',
-            caseName: patient?.name || '',
+            cancerType: caseRow.cancer_type || '',
+            caseName: caseRow.case_name,
           },
-          files: caseFiles.map((f: DbUploadedFile) => ({
-            id: f.id,
-            name: f.name,
-            size: f.size || 0,
-            type: f.type || '',
-            dataURL: '', // Files stored in storage, not as dataURL
-            fileCategory: f.file_category || '',
-            extractedData: f.extracted_data || undefined,
+          files: caseDocuments.map((doc: DbDocument) => ({
+            id: doc.id,
+            name: doc.file_name,
+            size: 0, // Size not stored in current schema
+            type: doc.file_type === 'pdf' ? 'application/pdf' : 'image/png',
+            dataURL: doc.anonymized_file_url || '', // Will be loaded from storage
+            fileCategory: doc.file_category || '',
+            extractedData: doc.digitized_text || undefined,
+            anonymizedVisited: doc.is_anonymized,
+            digitizedVisited: doc.is_digitized,
           })),
-          status: (caseRow.status as 'Pending' | 'In Review' | 'Completed') || 'Pending',
+          status: displayStatus,
           createdDate: caseRow.created_at,
-          ownerId: caseRow.user_id,
+          ownerId: caseRow.created_by,
         };
       });
 
@@ -140,7 +133,54 @@ export function useSupabaseData() {
     }
   }, [user]);
 
-  // Create a new patient and case
+  // Upload a file to storage and return the URL
+  const uploadFileToStorage = async (
+    file: UploadedFile,
+    caseId: string
+  ): Promise<{ storagePath: string; publicUrl: string } | null> => {
+    if (!user) return null;
+
+    try {
+      // Convert dataURL to blob
+      const dataURL = file.anonymizedDataURL || file.dataURL;
+      if (!dataURL) return null;
+
+      const response = await fetch(dataURL);
+      const blob = await response.blob();
+
+      // Generate storage path: userId/caseId/fileName
+      const fileExt = file.name.split('.').pop() || 'png';
+      const storagePath = `${user.id}/${caseId}/${file.id}.${fileExt}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('case-documents')
+        .upload(storagePath, blob, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError);
+        return null;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('case-documents')
+        .getPublicUrl(storagePath);
+
+      return {
+        storagePath,
+        publicUrl: urlData.publicUrl,
+      };
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      return null;
+    }
+  };
+
+  // Create a new case with patient and documents - ONLY called on "Create Case" click
   const createPatientAndCase = async (
     patientData: PatientData,
     files: UploadedFile[],
@@ -152,52 +192,88 @@ export function useSupabaseData() {
     }
 
     try {
-      // 1. Create patient
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .insert({
-          user_id: user.id,
-          name: patientData.name,
-          age: patientData.age ? parseInt(patientData.age, 10) : null,
-          sex: patientData.sex || null,
-          cancer_type: patientData.cancerType || null,
-        })
-        .select()
-        .single();
-
-      if (patientError) throw patientError;
-
-      // 2. Create case
+      // 1. Create case record first
       const { data: newCase, error: caseError } = await supabase
         .from('cases')
         .insert({
-          user_id: user.id,
-          patient_id: patient.id,
-          status: 'Pending',
+          case_name: patientData.caseName || patientData.name,
+          cancer_type: patientData.cancerType || null,
+          created_by: user.id,
+          status: 'active',
         })
         .select()
         .single();
 
       if (caseError) throw caseError;
 
-      // 3. Create uploaded files records (without actual file content for now)
-      if (files.length > 0) {
-        const fileRecords = files.map(f => ({
+      // 2. Create patient record linked to case
+      const { data: patient, error: patientError } = await supabase
+        .from('patients')
+        .insert({
           case_id: newCase.id,
-          user_id: user.id,
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          file_category: f.fileCategory || null,
-          extracted_data: f.extractedData || null,
-        }));
+          anonymized_name: patientData.name,
+          age: patientData.age ? parseInt(patientData.age, 10) : null,
+          sex: patientData.sex || null,
+        })
+        .select()
+        .single();
 
-        const { error: filesError } = await supabase
-          .from('uploaded_files')
-          .insert(fileRecords);
+      if (patientError) throw patientError;
 
-        if (filesError) throw filesError;
+      // 3. Upload files to storage and create document records
+      const documentRecords = [];
+      for (const file of files) {
+        // Upload file to storage
+        const uploadResult = await uploadFileToStorage(file, newCase.id);
+        
+        const isPdf = file.type === 'application/pdf';
+        const pageCount = isPdf ? (file.pdfPages?.length || file.anonymizedPages?.length || 1) : 1;
+
+        documentRecords.push({
+          case_id: newCase.id,
+          file_name: file.name,
+          file_type: isPdf ? 'pdf' : 'image',
+          file_category: file.fileCategory || null,
+          page_count: pageCount,
+          storage_path: uploadResult?.storagePath || null,
+          anonymized_file_url: uploadResult?.publicUrl || null,
+          digitized_text: file.extractedData || null,
+          is_anonymized: file.anonymizedVisited || false,
+          is_digitized: file.digitizedVisited || false,
+        });
       }
+
+      if (documentRecords.length > 0) {
+        const { data: documents, error: documentsError } = await supabase
+          .from('documents')
+          .insert(documentRecords)
+          .select();
+
+        if (documentsError) throw documentsError;
+
+        // 4. Create edit tracking records for each document
+        if (documents && documents.length > 0) {
+          const trackingRecords = documents.map(doc => ({
+            document_id: doc.id,
+            last_edited_stage: 'digitize' as const,
+            requires_revisit: false,
+          }));
+
+          await supabase
+            .from('document_edit_tracking')
+            .insert(trackingRecords);
+        }
+      }
+
+      // 5. Create audit log
+      await supabase
+        .from('audit_logs')
+        .insert({
+          entity_type: 'case',
+          entity_id: newCase.id,
+          edited_by: user.id,
+          change_summary: `Case "${patientData.caseName || patientData.name}" created with ${files.length} document(s)`,
+        });
 
       const fullCase: FullCase = {
         id: newCase.id,
@@ -216,10 +292,135 @@ export function useSupabaseData() {
       toast.success('Case created successfully');
 
       return fullCase;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error creating case:', err);
-      toast.error('Failed to create case');
+      if (err?.code === '23505') {
+        toast.error('A case with this name already exists');
+      } else {
+        toast.error('Failed to create case');
+      }
       return null;
+    }
+  };
+
+  // Modify an existing case - ONLY called on "Modify Case" click
+  const modifyCase = async (
+    caseId: string,
+    patientData: PatientData,
+    files: UploadedFile[],
+    editedFileIds: string[],
+    originalFiles: UploadedFile[]
+  ): Promise<boolean> => {
+    if (!user) {
+      toast.error('You must be logged in to modify a case');
+      return false;
+    }
+
+    try {
+      // 1. Update case record
+      await supabase
+        .from('cases')
+        .update({
+          case_name: patientData.caseName || patientData.name,
+          cancer_type: patientData.cancerType || null,
+        })
+        .eq('id', caseId)
+        .eq('created_by', user.id);
+
+      // 2. Update patient record
+      await supabase
+        .from('patients')
+        .update({
+          anonymized_name: patientData.name,
+          age: patientData.age ? parseInt(patientData.age, 10) : null,
+          sex: patientData.sex || null,
+        })
+        .eq('case_id', caseId);
+
+      // 3. Handle documents: only update changed/new ones
+      const originalFileIds = originalFiles.map(f => f.id);
+      const newFiles = files.filter(f => !originalFileIds.includes(f.id));
+      const modifiedFiles = files.filter(f => editedFileIds.includes(f.id));
+
+      // Upload and create new file records
+      for (const file of newFiles) {
+        const uploadResult = await uploadFileToStorage(file, caseId);
+        const isPdf = file.type === 'application/pdf';
+
+        const { data: newDoc, error: docError } = await supabase
+          .from('documents')
+          .insert({
+            case_id: caseId,
+            file_name: file.name,
+            file_type: isPdf ? 'pdf' : 'image',
+            file_category: file.fileCategory || null,
+            page_count: isPdf ? (file.pdfPages?.length || 1) : 1,
+            storage_path: uploadResult?.storagePath || null,
+            anonymized_file_url: uploadResult?.publicUrl || null,
+            digitized_text: file.extractedData || null,
+            is_anonymized: file.anonymizedVisited || false,
+            is_digitized: file.digitizedVisited || false,
+          })
+          .select()
+          .single();
+
+        if (docError) throw docError;
+
+        // Create edit tracking for new document
+        if (newDoc) {
+          await supabase
+            .from('document_edit_tracking')
+            .insert({
+              document_id: newDoc.id,
+              last_edited_stage: 'digitize',
+              requires_revisit: false,
+            });
+        }
+      }
+
+      // Update modified files
+      for (const file of modifiedFiles) {
+        const uploadResult = await uploadFileToStorage(file, caseId);
+
+        await supabase
+          .from('documents')
+          .update({
+            storage_path: uploadResult?.storagePath || null,
+            anonymized_file_url: uploadResult?.publicUrl || null,
+            digitized_text: file.extractedData || null,
+            is_anonymized: file.anonymizedVisited || false,
+            is_digitized: file.digitizedVisited || false,
+          })
+          .eq('id', file.id);
+
+        // Mark as requiring revisit in edit tracking
+        await supabase
+          .from('document_edit_tracking')
+          .update({
+            last_edited_stage: 'digitize',
+            requires_revisit: true,
+          })
+          .eq('document_id', file.id);
+      }
+
+      // 4. Create audit log
+      await supabase
+        .from('audit_logs')
+        .insert({
+          entity_type: 'case',
+          entity_id: caseId,
+          edited_by: user.id,
+          change_summary: `Case modified: ${newFiles.length} new document(s), ${modifiedFiles.length} updated document(s)`,
+        });
+
+      // Refresh cases
+      await fetchCases();
+      toast.success('Case updated successfully');
+      return true;
+    } catch (err) {
+      console.error('Error modifying case:', err);
+      toast.error('Failed to update case');
+      return false;
     }
   };
 
@@ -228,18 +429,40 @@ export function useSupabaseData() {
     if (!user) return false;
 
     try {
-      // Delete files first (due to foreign key)
-      await supabase
-        .from('uploaded_files')
-        .delete()
+      // Delete from storage first
+      const { data: documents } = await supabase
+        .from('documents')
+        .select('storage_path')
         .eq('case_id', caseId);
 
-      // Delete case
+      if (documents) {
+        const paths = documents
+          .filter(d => d.storage_path)
+          .map(d => d.storage_path as string);
+
+        if (paths.length > 0) {
+          await supabase.storage
+            .from('case-documents')
+            .remove(paths);
+        }
+      }
+
+      // Create audit log before deletion
+      await supabase
+        .from('audit_logs')
+        .insert({
+          entity_type: 'case',
+          entity_id: caseId,
+          edited_by: user.id,
+          change_summary: 'Case deleted',
+        });
+
+      // Delete case (cascades to patients, documents, tracking)
       const { error } = await supabase
         .from('cases')
         .delete()
         .eq('id', caseId)
-        .eq('user_id', user.id);
+        .eq('created_by', user.id);
 
       if (error) throw error;
 
@@ -253,10 +476,10 @@ export function useSupabaseData() {
     }
   };
 
-  // Update case status
+  // Update case status (archive/activate)
   const updateCaseStatus = async (
     caseId: string,
-    status: 'Pending' | 'In Review' | 'Completed'
+    status: 'active' | 'archived'
   ): Promise<boolean> => {
     if (!user) return false;
 
@@ -265,17 +488,134 @@ export function useSupabaseData() {
         .from('cases')
         .update({ status })
         .eq('id', caseId)
-        .eq('user_id', user.id);
+        .eq('created_by', user.id);
 
       if (error) throw error;
 
+      // Map to display status
+      const displayStatus = status === 'archived' ? 'Completed' : 'Pending';
       setCases(prev =>
-        prev.map(c => (c.id === caseId ? { ...c, status } : c))
+        prev.map(c => (c.id === caseId ? { ...c, status: displayStatus } : c))
       );
+
+      await supabase
+        .from('audit_logs')
+        .insert({
+          entity_type: 'case',
+          entity_id: caseId,
+          edited_by: user.id,
+          change_summary: `Case status changed to ${status}`,
+        });
+
       return true;
     } catch (err) {
       console.error('Error updating case status:', err);
       toast.error('Failed to update case');
+      return false;
+    }
+  };
+
+  // Load a case for editing (fetch full document data with storage URLs)
+  const loadCaseForEditing = async (caseId: string): Promise<FullCase | null> => {
+    if (!user) return null;
+
+    try {
+      // Fetch case
+      const { data: caseData, error: caseError } = await supabase
+        .from('cases')
+        .select('*')
+        .eq('id', caseId)
+        .eq('created_by', user.id)
+        .single();
+
+      if (caseError) throw caseError;
+
+      // Fetch patient
+      const { data: patient, error: patientError } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('case_id', caseId)
+        .single();
+
+      if (patientError) throw patientError;
+
+      // Fetch documents
+      const { data: documents, error: documentsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('case_id', caseId);
+
+      if (documentsError) throw documentsError;
+
+      // Build files with signed URLs for private bucket access
+      const files: UploadedFile[] = await Promise.all(
+        (documents || []).map(async (doc: DbDocument) => {
+          let dataURL = '';
+          
+          if (doc.storage_path) {
+            // Get signed URL for private bucket
+            const { data: signedData } = await supabase.storage
+              .from('case-documents')
+              .createSignedUrl(doc.storage_path, 3600); // 1 hour expiry
+
+            if (signedData?.signedUrl) {
+              dataURL = signedData.signedUrl;
+            }
+          }
+
+          return {
+            id: doc.id,
+            name: doc.file_name,
+            size: 0,
+            type: doc.file_type === 'pdf' ? 'application/pdf' : 'image/png',
+            dataURL,
+            fileCategory: doc.file_category || '',
+            extractedData: doc.digitized_text || undefined,
+            anonymizedVisited: doc.is_anonymized,
+            digitizedVisited: doc.is_digitized,
+          };
+        })
+      );
+
+      return {
+        id: caseData.id,
+        caseName: caseData.case_name,
+        patientId: patient.id,
+        patient: {
+          name: patient.anonymized_name,
+          age: patient.age?.toString() || '',
+          sex: patient.sex || '',
+          cancerType: caseData.cancer_type || '',
+          caseName: caseData.case_name,
+        },
+        files,
+        status: caseData.status === 'archived' ? 'Completed' : 'Pending',
+        createdDate: caseData.created_at,
+        ownerId: caseData.created_by,
+      };
+    } catch (err) {
+      console.error('Error loading case for editing:', err);
+      toast.error('Failed to load case');
+      return null;
+    }
+  };
+
+  // Check if case name already exists
+  const checkCaseNameExists = async (caseName: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('cases')
+        .select('id')
+        .eq('case_name', caseName)
+        .eq('created_by', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data !== null;
+    } catch (err) {
+      console.error('Error checking case name:', err);
       return false;
     }
   };
@@ -291,7 +631,10 @@ export function useSupabaseData() {
     error,
     fetchCases,
     createPatientAndCase,
+    modifyCase,
     deleteCase,
     updateCaseStatus,
+    loadCaseForEditing,
+    checkCaseNameExists,
   };
 }

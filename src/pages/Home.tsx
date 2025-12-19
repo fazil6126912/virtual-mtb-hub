@@ -11,11 +11,12 @@ const Home = () => {
   const [sex, setSex] = useState('');
   const [cancerType, setCancerType] = useState('');
   const [caseName, setCaseName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { setCurrentPatient } = useApp();
-  const { cases } = useSupabaseData();
+  const { checkCaseNameExists } = useSupabaseData();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!name || !age || !sex || !cancerType || !caseName) {
@@ -23,17 +24,20 @@ const Home = () => {
       return;
     }
 
-    // Check if case name already exists in Supabase cases
-    const caseNameExists = cases.some(
-      c => c.caseName.toLowerCase() === caseName.trim().toLowerCase()
-    );
-    if (caseNameExists) {
-      toast.error('You already have a case with this name. Please choose a different name.');
-      return;
-    }
+    setIsSubmitting(true);
+    try {
+      // Check if case name already exists in database
+      const caseNameExists = await checkCaseNameExists(caseName.trim());
+      if (caseNameExists) {
+        toast.error('You already have a case with this name. Please choose a different name.');
+        return;
+      }
 
-    setCurrentPatient({ name, age, sex, cancerType, caseName });
-    navigate('/upload');
+      setCurrentPatient({ name, age, sex, cancerType, caseName: caseName.trim() });
+      navigate('/upload');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -122,8 +126,8 @@ const Home = () => {
               </div>
 
               {/* Next Button */}
-              <button type="submit" className="home-btn-next">
-                Next
+              <button type="submit" className="home-btn-next" disabled={isSubmitting}>
+                {isSubmitting ? 'Checking...' : 'Next'}
               </button>
             </div>
           </form>

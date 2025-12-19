@@ -14,40 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
-      cases: {
+      audit_logs: {
         Row: {
-          created_at: string
+          change_summary: string
+          edited_at: string
+          edited_by: string
+          entity_id: string
+          entity_type: string
           id: string
-          patient_id: string
-          status: string
-          updated_at: string
-          user_id: string
         }
         Insert: {
-          created_at?: string
+          change_summary: string
+          edited_at?: string
+          edited_by: string
+          entity_id: string
+          entity_type: string
           id?: string
-          patient_id: string
-          status?: string
-          updated_at?: string
-          user_id: string
         }
         Update: {
-          created_at?: string
+          change_summary?: string
+          edited_at?: string
+          edited_by?: string
+          entity_id?: string
+          entity_type?: string
           id?: string
-          patient_id?: string
+        }
+        Relationships: []
+      }
+      cases: {
+        Row: {
+          cancer_type: string | null
+          case_name: string
+          created_at: string
+          created_by: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cancer_type?: string | null
+          case_name: string
+          created_at?: string
+          created_by: string
+          id?: string
           status?: string
           updated_at?: string
-          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "cases_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
+        Update: {
+          cancer_type?: string | null
+          case_name?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       chat_messages: {
         Row: {
@@ -77,9 +99,89 @@ export type Database = {
           recipient_id?: string | null
           sender_id?: string
         }
+        Relationships: []
+      }
+      document_edit_tracking: {
+        Row: {
+          document_id: string
+          id: string
+          last_edited_stage: string
+          requires_revisit: boolean
+          updated_at: string
+        }
+        Insert: {
+          document_id: string
+          id?: string
+          last_edited_stage: string
+          requires_revisit?: boolean
+          updated_at?: string
+        }
+        Update: {
+          document_id?: string
+          id?: string
+          last_edited_stage?: string
+          requires_revisit?: boolean
+          updated_at?: string
+        }
         Relationships: [
           {
-            foreignKeyName: "chat_messages_case_id_fkey"
+            foreignKeyName: "document_edit_tracking_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          anonymized_file_url: string | null
+          case_id: string
+          created_at: string
+          digitized_text: Json | null
+          file_category: string | null
+          file_name: string
+          file_type: string
+          id: string
+          is_anonymized: boolean
+          is_digitized: boolean
+          last_modified_at: string
+          page_count: number | null
+          storage_path: string | null
+        }
+        Insert: {
+          anonymized_file_url?: string | null
+          case_id: string
+          created_at?: string
+          digitized_text?: Json | null
+          file_category?: string | null
+          file_name: string
+          file_type: string
+          id?: string
+          is_anonymized?: boolean
+          is_digitized?: boolean
+          last_modified_at?: string
+          page_count?: number | null
+          storage_path?: string | null
+        }
+        Update: {
+          anonymized_file_url?: string | null
+          case_id?: string
+          created_at?: string
+          digitized_text?: Json | null
+          file_category?: string | null
+          file_name?: string
+          file_type?: string
+          id?: string
+          is_anonymized?: boolean
+          is_digitized?: boolean
+          last_modified_at?: string
+          page_count?: number | null
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_case_id_fkey"
             columns: ["case_id"]
             isOneToOne: false
             referencedRelation: "cases"
@@ -152,13 +254,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "mtb_cases_case_id_fkey"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "mtb_cases_mtb_id_fkey"
             columns: ["mtb_id"]
             isOneToOne: false
@@ -223,32 +318,37 @@ export type Database = {
       patients: {
         Row: {
           age: number | null
-          cancer_type: string | null
+          anonymized_name: string
+          case_id: string
           created_at: string
           id: string
-          name: string
           sex: string | null
-          user_id: string
         }
         Insert: {
           age?: number | null
-          cancer_type?: string | null
+          anonymized_name: string
+          case_id: string
           created_at?: string
           id?: string
-          name: string
           sex?: string | null
-          user_id: string
         }
         Update: {
           age?: number | null
-          cancer_type?: string | null
+          anonymized_name?: string
+          case_id?: string
           created_at?: string
           id?: string
-          name?: string
           sex?: string | null
-          user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patients_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -279,53 +379,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      uploaded_files: {
-        Row: {
-          case_id: string
-          created_at: string
-          extracted_data: Json | null
-          file_category: string | null
-          id: string
-          name: string
-          size: number | null
-          storage_path: string | null
-          type: string | null
-          user_id: string
-        }
-        Insert: {
-          case_id: string
-          created_at?: string
-          extracted_data?: Json | null
-          file_category?: string | null
-          id?: string
-          name: string
-          size?: number | null
-          storage_path?: string | null
-          type?: string | null
-          user_id: string
-        }
-        Update: {
-          case_id?: string
-          created_at?: string
-          extracted_data?: Json | null
-          file_category?: string | null
-          id?: string
-          name?: string
-          size?: number | null
-          storage_path?: string | null
-          type?: string | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "uploaded_files_case_id_fkey"
-            columns: ["case_id"]
-            isOneToOne: false
-            referencedRelation: "cases"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Views: {

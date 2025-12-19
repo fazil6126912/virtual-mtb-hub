@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Download } from 'lucide-react';
 import Header from '@/components/Header';
@@ -8,8 +8,10 @@ import ExpertList from '@/components/ExpertList';
 import ChatBox from '@/components/ChatBox';
 import GroupChat from '@/components/GroupChat';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseData, FullCase } from '@/hooks/useSupabaseData';
 import { Expert, UploadedFile } from '@/lib/storage';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const tabs = [
   { id: 'profile', label: 'Profile' },
@@ -29,15 +31,59 @@ const CaseView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state, sendGroupMessage } = useApp();
+  const { cases, loadCaseForEditing, loading } = useSupabaseData();
   const [activeTab, setActiveTab] = useState('profile');
   const [selectedReport, setSelectedReport] = useState<UploadedFile | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
   const [chatMode, setChatMode] = useState<'group' | 'private'>('group');
+  const [caseData, setCaseData] = useState<FullCase | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const caseData = state.cases.find(c => c.id === id);
+  // Load case data from database
+  useEffect(() => {
+    const loadCase = async () => {
+      if (!id) {
+        navigate('/cases');
+        return;
+      }
+
+      setIsLoading(true);
+      
+      // First check if case exists in already fetched cases
+      const existingCase = cases.find(c => c.id === id);
+      if (existingCase) {
+        setCaseData(existingCase);
+        setIsLoading(false);
+        return;
+      }
+
+      // If not found, try to load with full document data
+      const loadedCase = await loadCaseForEditing(id);
+      if (loadedCase) {
+        setCaseData(loadedCase);
+      } else {
+        toast.error('Case not found');
+        navigate('/cases');
+      }
+      setIsLoading(false);
+    };
+
+    loadCase();
+  }, [id, cases, loadCaseForEditing, navigate]);
+
+  if (isLoading || loading) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <Header />
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-12 w-48" />
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    );
+  }
 
   if (!caseData) {
-    navigate('/cases');
     return null;
   }
 
