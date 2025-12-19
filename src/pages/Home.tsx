@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
 
 const Home = () => {
@@ -10,7 +11,8 @@ const Home = () => {
   const [sex, setSex] = useState('');
   const [cancerType, setCancerType] = useState('');
   const [caseName, setCaseName] = useState('');
-  const { setCurrentPatient, state } = useApp();
+  const { setCurrentPatient } = useApp();
+  const { cases } = useSupabaseData();
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -21,9 +23,9 @@ const Home = () => {
       return;
     }
 
-    // Check if case name already exists for this user
-    const caseNameExists = state.cases.some(
-      c => c.caseName === caseName.trim() && c.ownerId === state.loggedInUser?.id
+    // Check if case name already exists in Supabase cases
+    const caseNameExists = cases.some(
+      c => c.caseName.toLowerCase() === caseName.trim().toLowerCase()
     );
     if (caseNameExists) {
       toast.error('You already have a case with this name. Please choose a different name.');

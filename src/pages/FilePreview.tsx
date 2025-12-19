@@ -5,6 +5,7 @@ import Header from '@/components/Header';
 import ZoomablePreview from '@/components/ZoomablePreview';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -35,7 +36,9 @@ const FilePreview = () => {
     getMissingDigitization,
     isCreateValid,
     isModifyValid,
+    clearUploadedFiles,
   } = useApp();
+  const { createPatientAndCase } = useSupabaseData();
   const mode = state.isEditMode ? 'MODIFY' : 'CREATE';
   const [jsonText, setJsonText] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -43,6 +46,7 @@ const FilePreview = () => {
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [triggerShake, setTriggerShake] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -193,14 +197,34 @@ const FilePreview = () => {
     setShowSubmitModal(true);
   };
 
-  const handleCreateCase = () => {
-    const newCase = createCase();
-    if (newCase) {
-      toast.success('Case created');
-      setShowSubmitModal(false);
-      navigate(`/cases/${newCase.id}`);
-    } else {
+  const handleCreateCase = async () => {
+    if (!state.currentPatient) {
+      toast.error('No patient data found');
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // Save to Supabase
+      const newCase = await createPatientAndCase(
+        state.currentPatient,
+        state.uploadedFiles
+      );
+
+      if (newCase) {
+        // Also create local case for backward compatibility
+        createCase();
+        clearUploadedFiles();
+        setShowSubmitModal(false);
+        navigate(`/cases/${newCase.id}`);
+      } else {
+        toast.error('Failed to create case');
+      }
+    } catch (error) {
+      console.error('Error creating case:', error);
       toast.error('Failed to create case');
+    } finally {
+      setIsCreating(false);
     }
   };
 

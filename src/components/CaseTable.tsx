@@ -4,15 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { Case, formatDate } from '@/lib/storage';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
+import type { FullCase } from '@/hooks/useSupabaseData';
 
 interface CaseTableProps {
-  cases: Case[];
+  cases: (Case | FullCase)[];
   title: string;
   basePath?: string;
   showActions?: 'all' | 'view-only'; // 'all' for My Cases, 'view-only' for Shared Cases
   showBackButton?: boolean;
   onBack?: () => void;
   onEditCase?: (caseId: string) => void;
+  onDeleteCase?: (caseId: string) => Promise<boolean>; // Supabase delete handler
   showPatientName?: boolean; // If false, show case name in second column instead
   hideTitle?: boolean; // If true, hide the card title
 }
@@ -32,6 +34,7 @@ const CaseTable = ({
   showBackButton = false,
   onBack,
   onEditCase,
+  onDeleteCase,
   showPatientName = true,
   hideTitle = false
 }: CaseTableProps) => {
@@ -64,9 +67,14 @@ const CaseTable = ({
     setDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    if (caseToDelete && deleteCase) {
-      deleteCase(caseToDelete.id);
+  const handleConfirmDelete = async () => {
+    if (caseToDelete) {
+      // Use Supabase delete if provided, otherwise fall back to local delete
+      if (onDeleteCase) {
+        await onDeleteCase(caseToDelete.id);
+      } else if (deleteCase) {
+        deleteCase(caseToDelete.id);
+      }
     }
     setDeleteModalOpen(false);
     setCaseToDelete(null);
