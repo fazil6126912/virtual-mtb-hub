@@ -195,7 +195,12 @@ const FilePreview = () => {
   };
 
   const handleCreateCase = async () => {
+    console.log('=== [handleCreateCase] START ===');
+    console.log('[handleCreateCase] Current patient:', state.currentPatient);
+    console.log('[handleCreateCase] Uploaded files:', state.uploadedFiles.length);
+
     if (!state.currentPatient) {
+      console.error('[handleCreateCase] No patient data found');
       toast.error('No patient data found');
       return;
     }
@@ -203,7 +208,18 @@ const FilePreview = () => {
     setIsCreating(true);
     try {
       // Save current file data first
+      console.log('[handleCreateCase] Saving current file data...');
       saveCurrentFile();
+      
+      console.log('[handleCreateCase] Calling createPatientAndCase...');
+      console.log('[handleCreateCase] Patient:', state.currentPatient);
+      console.log('[handleCreateCase] Files:', state.uploadedFiles.map(f => ({ 
+        name: f.name, 
+        hasDataURL: !!f.dataURL,
+        hasAnonymizedDataURL: !!f.anonymizedDataURL,
+        anonymizedVisited: f.anonymizedVisited,
+        digitizedVisited: f.digitizedVisited,
+      })));
       
       // Save to Supabase - this is the ONLY time we persist data
       const newCase = await createPatientAndCase(
@@ -211,19 +227,24 @@ const FilePreview = () => {
         state.uploadedFiles
       );
 
+      console.log('[handleCreateCase] createPatientAndCase result:', newCase ? newCase.id : 'null');
+
       if (newCase) {
+        console.log('[handleCreateCase] SUCCESS - clearing state and navigating...');
         // Clear local state after successful save
         clearUploadedFiles();
         setShowSubmitModal(false);
         navigate(`/cases/${newCase.id}`);
       } else {
+        console.error('[handleCreateCase] createPatientAndCase returned null');
         toast.error('Failed to create case');
       }
     } catch (error) {
-      console.error('Error creating case:', error);
+      console.error('[handleCreateCase] Error:', error);
       toast.error('Failed to create case');
     } finally {
       setIsCreating(false);
+      console.log('=== [handleCreateCase] END ===');
     }
   };
 
