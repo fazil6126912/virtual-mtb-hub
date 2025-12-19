@@ -27,19 +27,16 @@ const FilePreview = () => {
   const { 
     state, 
     updateFileExtractedData, 
-    createCase, 
-    modifyCase, 
     markFileAsEdited,
     markDigitizedVisited,
     markDigitizedDirty,
     getMissingAnonymization,
     getMissingDigitization,
-    isCreateValid,
-    isModifyValid,
     clearUploadedFiles,
   } = useApp();
-  const { createPatientAndCase } = useSupabaseData();
+  const { createPatientAndCase, modifyCase: supabaseModifyCase } = useSupabaseData();
   const mode = state.isEditMode ? 'MODIFY' : 'CREATE';
+  const [isModifying, setIsModifying] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
@@ -205,15 +202,17 @@ const FilePreview = () => {
 
     setIsCreating(true);
     try {
-      // Save to Supabase
+      // Save current file data first
+      saveCurrentFile();
+      
+      // Save to Supabase - this is the ONLY time we persist data
       const newCase = await createPatientAndCase(
         state.currentPatient,
         state.uploadedFiles
       );
 
       if (newCase) {
-        // Also create local case for backward compatibility
-        createCase();
+        // Clear local state after successful save
         clearUploadedFiles();
         setShowSubmitModal(false);
         navigate(`/cases/${newCase.id}`);
@@ -262,19 +261,37 @@ const FilePreview = () => {
     setShowModifyModal(true);
   };
 
-  const handleModifyCase = () => {
-    saveCurrentFile();
-    
-    // All files complete, proceed with modification
-    if (modifyCase()) {
-      toast.success('Case updated');
-      setShowModifyModal(false);
-      // Navigate to the case view page
-      if (state.editingCaseId) {
+  const handleModifyCase = async () => {
+    if (!state.currentPatient || !state.editingCaseId) {
+      toast.error('No case data found');
+      return;
+    }
+
+    setIsModifying(true);
+    try {
+      saveCurrentFile();
+      
+      // Save to Supabase - this is the ONLY time we persist modifications
+      const success = await supabaseModifyCase(
+        state.editingCaseId,
+        state.currentPatient,
+        state.uploadedFiles,
+        state.editedFileIds,
+        state.originalFiles
+      );
+
+      if (success) {
+        clearUploadedFiles();
+        setShowModifyModal(false);
         navigate(`/cases/${state.editingCaseId}`);
+      } else {
+        toast.error('Failed to update case');
       }
-    } else {
+    } catch (error) {
+      console.error('Error modifying case:', error);
       toast.error('Failed to update case');
+    } finally {
+      setIsModifying(false);
     }
   };
 
