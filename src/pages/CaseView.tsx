@@ -38,6 +38,7 @@ const CaseView = () => {
   const [chatMode, setChatMode] = useState<'group' | 'private'>('group');
   const [caseData, setCaseData] = useState<FullCase | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Load case data from database
   useEffect(() => {
@@ -73,9 +74,23 @@ const CaseView = () => {
 
   if (isLoading || loading) {
     return (
-      <div className="min-h-screen bg-muted">
+      <div className="h-screen bg-muted flex flex-col">
         <Header />
-        <div className="p-6 space-y-4">
+        {/* Compact Tab Bar */}
+        <div className="bg-background border-b border-border flex-shrink-0">
+          <div className="w-full px-4">
+            <div className="flex items-center justify-between py-2">
+              <div className="flex space-x-4">
+                <div className="w-16 h-4 bg-muted rounded"></div>
+                <div className="w-16 h-4 bg-muted rounded"></div>
+                <div className="w-16 h-4 bg-muted rounded"></div>
+                <div className="w-24 h-4 bg-muted rounded"></div>
+              </div>
+              <div className="w-6 h-6 bg-muted rounded"></div>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 p-6 space-y-4">
           <Skeleton className="h-12 w-48" />
           <Skeleton className="h-64 w-full" />
         </div>
@@ -192,32 +207,46 @@ const CaseView = () => {
 
       case 'experts':
         return (
-          <div className="p-4 md:p-6 animate-fade-in flex flex-col h-[calc(100vh-8rem)]">
+          <div className="p-0 md:p-0 animate-fade-in flex flex-col h-full">
             <div className="flex-1 overflow-hidden flex flex-col">
-              <div className="flex gap-6 flex-1 min-h-0">
+              <div className="flex gap-4 flex-1 min-h-0">
                 {/* Experts List */}
-                <div className="w-64 lg:w-72 border-r border-border overflow-y-auto hide-scrollbar pr-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-foreground">Experts</h3>
-                    <button
-                      onClick={handleSwitchToGroup}
-                      className={`px-2 py-1 text-xs rounded-lg transition-colors whitespace-nowrap ${
-                        chatMode === 'group' ? 'bg-vmtb-green text-white' : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
-                      }`}
-                      aria-label="Group chat"
-                    >
-                      Group Chat
-                    </button>
+                <div className="w-64 lg:w-72 border-r border-border flex flex-col">
+                  <div className="p-4">
+                    <input
+                      type="text"
+                      placeholder="Search experts"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
                   </div>
-                  <ExpertList
-                    experts={state.experts}
-                    selectedExpert={selectedExpert}
-                    onSelectExpert={handleSelectExpert}
-                  />
+                  <div className="flex-1 overflow-y-auto hide-scrollbar pr-4 pl-4 pt-0">
+                    <ExpertList
+                      experts={state.experts.filter(expert => 
+                        expert.name.toLowerCase().includes(searchTerm.toLowerCase())
+                      )}
+                      selectedExpert={selectedExpert}
+                      onSelectExpert={handleSelectExpert}
+                    />
+                  </div>
+                  <div className="p-4 mt-auto">
+                    <div className="flex justify-center">
+                      <button
+                        onClick={handleSwitchToGroup}
+                        className={`px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
+                          chatMode === 'group' ? 'bg-vmtb-green text-white' : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
+                        }`}
+                        aria-label="Group chat"
+                      >
+                        Group Chat
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Chat Area */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 bg-primary/5">
                   {chatMode === 'group' ? (
                     <GroupChat
                       caseId={caseData.id}
@@ -234,11 +263,7 @@ const CaseView = () => {
                 </div>
               </div>
 
-              <div className="mt-4 pt-4 border-t border-border" role="note">
-                <p className="text-xs text-muted-foreground">
-                  If you would like to add experts to this case, please contact the case originator.
-                </p>
-              </div>
+
             </div>
           </div>
         );
@@ -265,11 +290,11 @@ const CaseView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted">
+    <div className="h-screen bg-muted flex flex-col">
       <Header />
       
       {/* Compact Tab Bar */}
-      <div className="bg-background border-b border-border">
+      <div className="bg-background border-b border-border flex-shrink-0">
         <div className="w-full px-4">
           <div className="flex items-center justify-between py-2">
             <TabBar tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
@@ -283,7 +308,7 @@ const CaseView = () => {
         </div>
       </div>
 
-      <main className="w-full overflow-y-auto overscroll-y-none">
+      <main className="w-full flex-1 overflow-hidden flex flex-col">
         {renderTabContent()}
       </main>
     </div>
