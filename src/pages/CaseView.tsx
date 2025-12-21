@@ -235,7 +235,7 @@ const CaseView = () => {
                       <button
                         onClick={handleSwitchToGroup}
                         className={`px-3 py-1.5 text-sm rounded-lg transition-colors whitespace-nowrap ${
-                          chatMode === 'group' ? 'bg-vmtb-green text-white' : 'bg-muted text-muted-foreground hover:text-foreground border border-border'
+                          chatMode === 'group' ? 'bg-muted text-muted-foreground hover:text-foreground border border-border' : 'bg-vmtb-green text-white'
                         }`}
                         aria-label="Group chat"
                       >
