@@ -85,6 +85,27 @@ export interface MTB {
   ownerId?: string; // Owner user ID
 }
 
+export interface Meeting {
+  id: string;
+  mtb_id: string;
+  mtb_name?: string;
+  created_by: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  schedule_type: 'once' | 'custom';
+  repeat_days: number[] | null;
+  created_at: string;
+}
+
+export interface MeetingNotification {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  read: boolean;
+  meeting?: Meeting;
+  created_at: string;
+}
+
 export interface Invitation {
   id: string;
   mtb_id: string;
@@ -111,6 +132,8 @@ export interface AppState {
   emailVerificationOtp: string | null;
   emailVerificationPending: string | null;
   invitations: Invitation[];
+  meetings: Meeting[];
+  meetingNotifications: MeetingNotification[];
   isEditMode: boolean;
   editingCaseId: string | null;
   originalFiles: UploadedFile[];
@@ -185,6 +208,8 @@ const getDefaultState = (): AppState => ({
   emailVerificationOtp: null,
   emailVerificationPending: null,
   invitations: [],
+  meetings: [],
+  meetingNotifications: [],
   isEditMode: false,
   editingCaseId: null,
   originalFiles: [],

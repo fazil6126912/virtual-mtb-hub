@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { Meeting } from '@/hooks/useMeetings';
+import type { Meeting } from '@/lib/storage';
 
 interface MeetingsModalProps {
   open: boolean;
