@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
+import { ArrowRight, FileText, LayoutDashboard, Video, ClipboardCheck } from 'lucide-react';
 
 const Landing = () => {
   const { user, loading } = useAuth();
@@ -17,49 +18,147 @@ const Landing = () => {
     return <Navigate to="/home" replace />;
   }
 
+  const features = [
+    {
+      icon: FileText,
+      title: "Anonymize and Digitize patient's data",
+      description: "With AI, semi-automatically anonymizes and digitize unstructured reports into a visual clinical timeline."
+    },
+    {
+      icon: LayoutDashboard,
+      title: "Unified Case Dashboard",
+      description: "Visualize pathology, radiology, and molecular profiling on a single interactive interface—no more toggling between files."
+    },
+    {
+      icon: Video,
+      title: "Virtual Boardroom",
+      description: "Host secure, multi-disciplinary meetings with integrated video, instant messaging, and one-click expert invitations."
+    },
+    {
+      icon: ClipboardCheck,
+      title: "Actionable Consensus",
+      description: "Formalize treatment plans within the platform and maintain a longitudinal record of patient follow-ups."
+    }
+  ];
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="p-6">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-              <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
+    <div className="min-h-screen flex flex-col">
+      {/* Section 1: Hero */}
+      <section 
+        className="w-full min-h-screen flex items-center justify-center px-4 py-12 md:px-8 lg:px-16"
+        style={{ backgroundColor: '#8ecae6' }}
+      >
+        <div className="w-full max-w-7xl">
+          {/* Outer rounded container */}
+          <div 
+            className="rounded-3xl overflow-hidden"
+            style={{
+              background: 'linear-gradient(90deg, #219ebc 0%, #219ebc 30%, rgba(33, 158, 188, 0.15) 70%, rgba(255, 238, 219, 0) 100%)'
+            }}
+          >
+            {/* Inner container with content */}
+            <div className="flex flex-col lg:flex-row items-stretch">
+              {/* Left Column - Text Content */}
+              <div className="flex-1 flex flex-col justify-center p-8 md:p-12 lg:p-16">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
+                  Collaborate with experts to accelerate precision oncology.
+                </h1>
+                <p className="text-base md:text-lg text-white/80 mb-8 max-w-xl">
+                  Our AI-driven platform anonymizes and digitizes complex cases, enabling one-click sharing, seamless expert discussion, and longitudinal outcome tracking in one unified workspace.
+                </p>
+                <div>
+                  <Link 
+                    to="/auth" 
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-300 hover:brightness-110 hover:scale-105"
+                    style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      color: '#0c7792'
+                    }}
+                  >
+                    GET STARTED
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+
+              {/* Right Column - Image */}
+              <div className="flex-1 flex items-center justify-center p-4 lg:p-0">
+                <img 
+                  src="/images/landing-hero.png" 
+                  alt="Doctors collaborating on precision oncology cases"
+                  className="w-full h-full object-cover lg:object-contain max-h-[400px] lg:max-h-none"
+                />
+              </div>
             </div>
           </div>
-          <span className="text-xl font-bold text-foreground">vMTB</span>
         </div>
-      </header>
+      </section>
 
-      {/* Main Content */}
-      <main className="flex-1 flex items-center justify-center px-6">
-        <div className="max-w-2xl text-center animate-slide-up">
-          {/* Large Logo */}
-          <div className="w-32 h-32 mx-auto mb-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
-              <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 w-8 h-8 bg-sky-300 rounded-full opacity-80" />
-            </div>
-          </div>
+      {/* Section 2: Features & Services */}
+      <section 
+        className="w-full py-16 md:py-24 px-4 md:px-8 lg:px-16"
+        style={{
+          background: 'linear-gradient(180deg, rgba(142, 202, 230, 0.385) 0%, rgba(142, 202, 230, 0.435) 30%, rgba(142, 202, 230, 0.88) 100%), #219ebc'
+        }}
+      >
+        <div className="w-full max-w-5xl mx-auto">
+          {/* Section Heading */}
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white text-center mb-12 md:mb-16 italic">
+            Our Features & Services.
+          </h2>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
-            Virtual Molecular Tumor Board
-          </h1>
-          <p className="text-lg text-muted-foreground mb-12 max-w-lg mx-auto">
-            Collaborate with experts worldwide to review and discuss complex cancer cases using advanced molecular profiling.
-          </p>
+          {/* Feature Cards */}
+          <div className="flex flex-col gap-4 md:gap-6">
+            {features.map((feature, index) => {
+              const IconComponent = feature.icon;
+              return (
+                <div 
+                  key={index}
+                  className="rounded-2xl p-6 md:p-8 flex items-start gap-5 md:gap-6 transition-all duration-300 hover:scale-[1.02]"
+                  style={{
+                    backgroundColor: 'rgba(142, 202, 230, 0.35)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  {/* Icon Container */}
+                  <div 
+                    className="flex-shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center"
+                    style={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      border: '2px solid rgba(0, 119, 146, 0.4)'
+                    }}
+                  >
+                    <IconComponent 
+                      className="w-7 h-7 md:w-8 md:h-8"
+                      style={{ color: '#0c7792' }}
+                      strokeWidth={1.5}
+                    />
+                  </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/auth" className="vmtb-btn-primary text-center">
-              Get Started
-            </Link>
+                  {/* Text Content */}
+                  <div className="flex-1">
+                    <h3 
+                      className="text-xl md:text-2xl font-semibold mb-2"
+                      style={{ color: '#0c7792' }}
+                    >
+                      {feature.title}
+                    </h3>
+                    <p className="text-sm md:text-base text-white/90 leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </main>
+      </section>
 
       {/* Footer */}
-      <footer className="p-6 text-center text-sm text-muted-foreground">
+      <footer 
+        className="py-6 text-center text-sm text-white/70"
+        style={{ backgroundColor: '#219ebc' }}
+      >
         © 2025 vMTB. Advancing precision oncology through collaboration.
       </footer>
     </div>
