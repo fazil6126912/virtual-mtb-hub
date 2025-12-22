@@ -48,14 +48,14 @@ const MeetingsModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <DialogTitle className="text-lg font-semibold text-foreground">
             Scheduled Meetings
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto py-4">
+        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto hide-scrollbar">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -75,9 +75,9 @@ const MeetingsModal = ({
                   <div
                     key={meeting.id}
                     className={cn(
-                      'p-4 rounded-lg border transition-colors',
+                      'p-4 rounded-xl border transition-all duration-200',
                       isNow 
-                        ? 'border-primary/50 bg-primary/5' 
+                        ? 'border-primary/30 bg-primary/5' 
                         : 'border-border bg-card hover:bg-muted/50'
                     )}
                   >
@@ -87,20 +87,20 @@ const MeetingsModal = ({
                           {meeting.mtb_name || 'MTB Meeting'}
                         </h4>
                         
-                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4" />
+                            <Calendar className="w-4 h-4 text-primary" />
                             <span>{formatMeetingDate(meeting.scheduled_date)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Clock className="w-4 h-4" />
+                            <Clock className="w-4 h-4 text-primary" />
                             <span>{meeting.scheduled_time}</span>
                           </div>
                         </div>
 
                         {meeting.schedule_type === 'custom' && meeting.repeat_days && (
                           <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-                            <RefreshCw className="w-3 h-3" />
+                            <RefreshCw className="w-3.5 h-3.5 text-primary" />
                             <span>Repeats: {formatRepeatDays(meeting.repeat_days)}</span>
                           </div>
                         )}
@@ -111,12 +111,14 @@ const MeetingsModal = ({
                         onClick={() => onJoin?.(meeting)}
                         className={cn(
                           'flex-shrink-0',
-                          isNow ? 'vmtb-btn-primary' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                          isNow 
+                            ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         )}
                         disabled={status === 'past'}
                       >
                         <Video className="w-4 h-4 mr-1.5" />
-                        Join Now
+                        Join
                       </Button>
                     </div>
                   </div>
@@ -124,6 +126,16 @@ const MeetingsModal = ({
               })}
             </div>
           )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-border bg-muted/20">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="w-full"
+          >
+            Close
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
