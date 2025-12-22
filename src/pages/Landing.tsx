@@ -63,41 +63,14 @@ const Landing = () => {
   }
 
   return (
-    <div ref={containerRef} className="overflow-hidden">
-      {/* SECTION 1: HERO SECTION */}
-      <section className="h-screen w-full bg-[#8ecae6] flex items-center justify-center px-4 md:px-8">
-        <div className="w-[95%] max-w-8xl mx-auto my-8 md:my-12 h-[80vh]">
-          <div className="rounded-3xl overflow-hidden h-full flex flex-row relative">
-            {/* Gradient overlay spanning both columns */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#219ebc] via-[#219ebc] via-[#219ebc]/80 via-[#219ebc]/60 via-[#219ebc]/40 via-[#219ebc]/20 via-[#219ebc]/10 via-[#219ebc]/5 to-[#ffeedb]/0 z-10"></div>
-            
-            {/* LEFT COLUMN - TEXT CONTENT */}
-            <div className="w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative z-20">
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-semibold text-white mb-4 leading-tight max-w-2xl">
-                Collaborate with experts to accelerate precision oncology.
-              </h1>
-              <p className="text-lg text-white/90 mb-10 max-w-2xl">
-                Our AI-driven platform anonymizes and digitizes complex cases, enabling one-click sharing, seamless expert discussion, and longitudinal outcome tracking in one unified workspace.
-              </p>
-              <Link 
-                to="/auth" 
-                className="inline-flex items-center gap-2 bg-white text-[#219ebc] font-medium py-2.5 px-5 rounded-full hover:bg-white/90 transition-all duration-300 shadow-md w-fit"
-              >
-                GET STARTED
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
-            
-            {/* RIGHT COLUMN - IMAGE ONLY */}
-            <div className=" overflow-hidden relative z-0">
-              <img 
-                src="/images/landing-hero.png" 
-                alt="Doctors collaborating with digital medical screens" 
-                className="w-full h-full object-cover"
-              />
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="p-6">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-t from-primary to-primary/60 relative">
+              <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-primary/80 to-transparent rounded-b-full" />
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-sky-300 rounded-full opacity-80" />
             </div>
           </div>
         </div>
