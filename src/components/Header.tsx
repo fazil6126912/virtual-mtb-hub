@@ -178,7 +178,7 @@ const Header = () => {
       <MeetingsModal
         open={meetingsOpen}
         onOpenChange={setMeetingsOpen}
-        meetings={notifications.map(n => n.meeting).filter(Boolean) as any[]}
+        meetings={meetings}
         loading={meetingsLoading}
         onJoin={(meeting) => {
           // Placeholder for join meeting functionality

@@ -1,27 +1,36 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Meeting, MeetingNotification, generateId } from '@/lib/storage';
 import { toast } from 'sonner';
 
-export interface Meeting {
-  id: string;
-  mtb_id: string;
-  mtb_name?: string;
-  created_by: string;
-  scheduled_date: string;
-  scheduled_time: string;
-  schedule_type: 'once' | 'custom';
-  repeat_days: number[] | null;
-  created_at: string;
-}
+const MEETINGS_KEY = 'vmtb_meetings';
+const NOTIFICATIONS_KEY = 'vmtb_meeting_notifications';
 
-export interface MeetingNotification {
-  id: string;
-  meeting_id: string;
-  user_id: string;
-  read: boolean;
-  meeting?: Meeting;
-}
+const loadMeetings = (): Meeting[] => {
+  try {
+    const stored = localStorage.getItem(MEETINGS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveMeetings = (meetings: Meeting[]) => {
+  localStorage.setItem(MEETINGS_KEY, JSON.stringify(meetings));
+};
+
+const loadNotifications = (): MeetingNotification[] => {
+  try {
+    const stored = localStorage.getItem(NOTIFICATIONS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveNotifications = (notifications: MeetingNotification[]) => {
+  localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(notifications));
+};
 
 export const useMeetings = () => {
   const { user } = useAuth();
@@ -30,65 +39,33 @@ export const useMeetings = () => {
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchMeetings = useCallback(async () => {
+  const fetchMeetings = useCallback(() => {
     if (!user) return;
     
     setLoading(true);
     try {
-      // Fetch meetings with MTB names
-      const { data: meetingsData, error: meetingsError } = await supabase
-        .from('meetings')
-        .select(`
-          *,
-          mtbs (name)
-        `)
-        .order('scheduled_date', { ascending: true });
-
-      if (meetingsError) throw meetingsError;
-
-      const formattedMeetings = meetingsData?.map(m => ({
-        ...m,
-        mtb_name: m.mtbs?.name,
-        schedule_type: m.schedule_type as 'once' | 'custom',
-      })) || [];
-
-      setMeetings(formattedMeetings);
-    } catch (error) {
-      console.error('Error fetching meetings:', error);
+      const allMeetings = loadMeetings();
+      setMeetings(allMeetings);
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchNotifications = useCallback(() => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('meeting_notifications')
-        .select(`
-          *,
-          meetings (
-            *,
-            mtbs (name)
-          )
-        `)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      const allNotifications = loadNotifications();
+      // Filter notifications for current user and attach meeting data
+      const userNotifications = allNotifications
+        .filter(n => n.user_id === user.id)
+        .map(n => ({
+          ...n,
+          meeting: loadMeetings().find(m => m.id === n.meeting_id),
+        }));
 
-      if (error) throw error;
-
-      const formattedNotifications = data?.map(n => ({
-        ...n,
-        meeting: n.meetings ? {
-          ...n.meetings,
-          mtb_name: n.meetings.mtbs?.name,
-          schedule_type: n.meetings.schedule_type as 'once' | 'custom',
-        } : undefined,
-      })) || [];
-
-      setNotifications(formattedNotifications);
-      setUnreadCount(formattedNotifications.filter(n => !n.read).length);
+      setNotifications(userNotifications);
+      setUnreadCount(userNotifications.filter(n => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     }
@@ -96,6 +73,7 @@ export const useMeetings = () => {
 
   const createMeeting = async (
     mtbId: string,
+    mtbName: string,
     scheduledDate: Date,
     scheduledTime: string,
     scheduleType: 'once' | 'custom',
@@ -104,48 +82,31 @@ export const useMeetings = () => {
     if (!user) return null;
 
     try {
-      // Create the meeting
-      const { data: meetingData, error: meetingError } = await supabase
-        .from('meetings')
-        .insert({
-          mtb_id: mtbId,
-          created_by: user.id,
-          scheduled_date: scheduledDate.toISOString().split('T')[0],
-          scheduled_time: scheduledTime,
-          schedule_type: scheduleType,
-          repeat_days: repeatDays,
-        })
-        .select()
-        .single();
+      const newMeeting: Meeting = {
+        id: generateId(),
+        mtb_id: mtbId,
+        mtb_name: mtbName,
+        created_by: user.id,
+        scheduled_date: scheduledDate.toISOString().split('T')[0],
+        scheduled_time: scheduledTime,
+        schedule_type: scheduleType,
+        repeat_days: repeatDays,
+        created_at: new Date().toISOString(),
+      };
 
-      if (meetingError) throw meetingError;
+      // Save meeting
+      const allMeetings = loadMeetings();
+      allMeetings.push(newMeeting);
+      saveMeetings(allMeetings);
 
-      // Get all MTB members (excluding the creator)
-      const { data: membersData, error: membersError } = await supabase
-        .from('mtb_members')
-        .select('user_id')
-        .eq('mtb_id', mtbId)
-        .neq('user_id', user.id);
-
-      if (membersError) throw membersError;
-
-      // Create notifications for all members
-      if (membersData && membersData.length > 0) {
-        const notifications = membersData.map(member => ({
-          meeting_id: meetingData.id,
-          user_id: member.user_id,
-        }));
-
-        const { error: notifError } = await supabase
-          .from('meeting_notifications')
-          .insert(notifications);
-
-        if (notifError) throw notifError;
-      }
-
+      // Get MTB members from localStorage (simplified - in real app would be from state)
+      // For now, we'll create a notification that the creator won't see
+      // Since we don't have real MTB members in localStorage, we'll skip member notifications
+      // The meeting will still appear in the creator's Meetings section
+      
       toast.success('Meeting scheduled successfully');
-      await fetchMeetings();
-      return meetingData;
+      fetchMeetings();
+      return newMeeting;
     } catch (error) {
       console.error('Error creating meeting:', error);
       toast.error('Failed to schedule meeting');
@@ -160,12 +121,11 @@ export const useMeetings = () => {
     if (unreadIds.length === 0) return;
 
     try {
-      const { error } = await supabase
-        .from('meeting_notifications')
-        .update({ read: true })
-        .in('id', unreadIds);
-
-      if (error) throw error;
+      const allNotifications = loadNotifications();
+      const updatedNotifications = allNotifications.map(n => 
+        unreadIds.includes(n.id) ? { ...n, read: true } : n
+      );
+      saveNotifications(updatedNotifications);
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
