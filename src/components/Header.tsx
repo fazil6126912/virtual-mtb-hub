@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
-import { LogOut, Edit, Mail } from 'lucide-react';
+import { LogOut, Edit, Mail, Video } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DropdownMenu,
@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import EditProfileModal from './EditProfileModal';
 import InvitationsModal, { Invitation } from './InvitationsModal';
+import MeetingsModal from './MeetingsModal';
+import { useMeetings } from '@/hooks/useMeetings';
 
 /**
  * Compact Header component with reduced height
@@ -24,6 +26,8 @@ const Header = () => {
   const { state, markInvitationsRead, acceptInvitation, declineInvitation } = useApp();
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [invitationsOpen, setInvitationsOpen] = useState(false);
+  const [meetingsOpen, setMeetingsOpen] = useState(false);
+  const { notifications, meetings, unreadCount: unreadMeetingsCount, markNotificationsRead, loading: meetingsLoading } = useMeetings();
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -108,10 +112,9 @@ const Header = () => {
                         </div>
                       </div>
                     )}
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center font-medium">
-                        {unreadCount}
-                      </span>
+                    {/* Show notification dot for unread invitations OR unread meetings */}
+                    {(unreadCount > 0 || unreadMeetingsCount > 0) && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full" />
                     )}
                   </button>
                 </DropdownMenuTrigger>
@@ -132,6 +135,18 @@ const Header = () => {
                     {unreadCount > 0 && (
                       <span className="ml-auto bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
                         {unreadCount}
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    setMeetingsOpen(true);
+                    markNotificationsRead();
+                  }}>
+                    <Video className="w-4 h-4 mr-2" />
+                    Meetings
+                    {unreadMeetingsCount > 0 && (
+                      <span className="ml-auto bg-destructive text-destructive-foreground text-xs px-2 py-0.5 rounded-full">
+                        {unreadMeetingsCount}
                       </span>
                     )}
                   </DropdownMenuItem>
@@ -158,6 +173,17 @@ const Header = () => {
         invitations={userInvitations}
         onAccept={handleAcceptInvitation}
         onDecline={handleDeclineInvitation}
+      />
+
+      <MeetingsModal
+        open={meetingsOpen}
+        onOpenChange={setMeetingsOpen}
+        meetings={notifications.map(n => n.meeting).filter(Boolean) as any[]}
+        loading={meetingsLoading}
+        onJoin={(meeting) => {
+          // Placeholder for join meeting functionality
+          toast.info(`Joining meeting for ${meeting.mtb_name || 'MTB'}`);
+        }}
       />
     </>
   );

@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, X, User, Search, Eye, Pencil, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, X, User, Search, Eye, Pencil, Trash2, ChevronRight, ChevronDown, Video } from 'lucide-react';
 import Header from '@/components/Header';
 import CaseTable from '@/components/CaseTable';
 import ExpertList from '@/components/ExpertList';
 import AddExpertModal from '@/components/AddExpertModal';
 import AddCaseToMTBModal from '@/components/AddCaseToMTBModal';
 import ConfirmModal from '@/components/ConfirmModal';
+import ScheduleMeetModal from '@/components/ScheduleMeetModal';
 import { useApp } from '@/contexts/AppContext';
 import { Case } from '@/lib/storage';
+import { useMeetings } from '@/hooks/useMeetings';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,12 +38,14 @@ const MTBDetail = () => {
   const [activeSection, setActiveSection] = useState('mycases');
   const [showAddExpert, setShowAddExpert] = useState(false);
   const [showAddCase, setShowAddCase] = useState(false);
+  const [showScheduleMeet, setShowScheduleMeet] = useState(false);
   const [expertToRemove, setExpertToRemove] = useState<string | null>(null);
   const [removeExpertModalOpen, setRemoveExpertModalOpen] = useState(false);
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sectionDropdownOpen, setSectionDropdownOpen] = useState(false);
+  const { createMeeting } = useMeetings();
 
   // Defensive checks
   if (!id) {
@@ -712,8 +716,20 @@ const MTBDetail = () => {
                 </DropdownMenu>
               </div>
 
-              {/* Right: Add Button + Search */}
+              {/* Right: Schedule Meet + Add Button + Search */}
               <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+                {/* Schedule a Meet button - only for owners */}
+                {isOwner && (
+                  <button
+                    onClick={() => setShowScheduleMeet(true)}
+                    className="px-3 py-1.5 vmtb-btn-primary flex items-center gap-1 text-sm whitespace-nowrap rounded-full"
+                    aria-label="Schedule a Meet"
+                  >
+                    <Video className="w-4 h-4" />
+                    <span className="hidden sm:inline">Schedule a Meet</span>
+                  </button>
+                )}
+
                 {showAddButton && (
                   <button
                     onClick={onAddClick}
@@ -760,6 +776,17 @@ const MTBDetail = () => {
           open={showAddCase}
           onOpenChange={setShowAddCase}
           onAddCases={handleAddCases}
+        />
+
+        {/* Schedule Meet Modal */}
+        <ScheduleMeetModal
+          open={showScheduleMeet}
+          onOpenChange={setShowScheduleMeet}
+          mtbId={mtb.id}
+          mtbName={mtb.name}
+          onSchedule={async (scheduledDate, scheduledTime, scheduleType, repeatDays) => {
+            await createMeeting(mtb.id, scheduledDate, scheduledTime, scheduleType, repeatDays);
+          }}
         />
 
         {/* Remove Expert Confirmation Modal */}
