@@ -233,6 +233,82 @@ export type Database = {
           },
         ]
       }
+      meeting_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          meeting_id: string
+          read: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meeting_id: string
+          read?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          read?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_notifications_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          mtb_id: string
+          repeat_days: number[] | null
+          schedule_type: string
+          scheduled_date: string
+          scheduled_time: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          mtb_id: string
+          repeat_days?: number[] | null
+          schedule_type?: string
+          scheduled_date: string
+          scheduled_time: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          mtb_id?: string
+          repeat_days?: number[] | null
+          schedule_type?: string
+          scheduled_date?: string
+          scheduled_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_mtb_id_fkey"
+            columns: ["mtb_id"]
+            isOneToOne: false
+            referencedRelation: "mtbs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mtb_cases: {
         Row: {
           added_at: string
