@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { FileText, Monitor, Users, Clipboard } from 'lucide-react';
+import { FileText, Monitor, Users, Clipboard, MapPin, Mail, BookOpen } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 const Landing = () => {
@@ -167,6 +167,51 @@ const Landing = () => {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* SECTION 3: FOOTER SECTION */}
+      <section className="h-screen w-full bg-[#8ecae6] flex flex-col">
+        {/* Empty top area - 80-85% */}
+        <div className="flex-1"></div>
+        
+        {/* Footer - 15-20% */}
+        <footer className="w-full bg-[#219ebc] py-8 px-6 md:px-12 lg:px-16">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center md:items-start justify-between gap-8">
+            {/* Logo + Brand */}
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-10 h-10 text-white" />
+              <span className="text-2xl font-semibold text-white">vMTB</span>
+            </div>
+            
+            {/* Address Block */}
+            <div className="flex items-start gap-3 text-center md:text-left">
+              <MapPin className="w-5 h-5 text-[#f4d35e] flex-shrink-0 mt-1" />
+              <div>
+                <p className="text-[#f4d35e] font-medium mb-1">Address</p>
+                <p className="text-white text-sm leading-relaxed">
+                  Indian Institute of Technology<br />
+                  Jodhpur, NH 62 Nagaur Road,<br />
+                  Karwar 342030, Jodhpur<br />
+                  District, Rajasthan, India
+                </p>
+              </div>
+            </div>
+            
+            {/* Email Block */}
+            <div className="flex flex-col items-center md:items-start gap-2">
+              <div className="flex items-center gap-2">
+                <Mail className="w-5 h-5 text-[#90e0ef]" />
+                <span className="text-[#90e0ef] font-medium">Email us</span>
+              </div>
+              <a href="mailto:projectch.startup@gmail.com" className="text-white text-sm hover:underline">
+                projectch.startup@gmail.com
+              </a>
+              <p className="text-[#f4d35e] text-sm mt-2">
+                Reach out anytime with questions or feedback.
+              </p>
+            </div>
+          </div>
+        </footer>
       </section>
     </div>
   );
