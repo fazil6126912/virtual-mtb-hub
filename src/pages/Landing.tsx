@@ -42,22 +42,44 @@ const Landing = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <style>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       {/* Section 1: Hero */}
       <section 
-        className="w-full min-h-screen flex items-center justify-center px-4 py-12 md:px-8 lg:px-16"
-        style={{ backgroundColor: '#8ecae6' }}
+        className="w-full flex items-center justify-center px-4 py-8 md:px-8 lg:px-16"
+        style={{ backgroundColor: '#8ecae6', minHeight: '80vh' }}
       >
-        <div className="w-full max-w-7xl">
-          {/* Outer rounded container */}
+        <div className="w-full max-w-7xl" style={{ height: 'calc(80vh - 4rem)' }}>
+          {/* Outer rounded container with relative positioning for layering */}
           <div 
-            className="rounded-3xl overflow-hidden"
-            style={{
-              background: 'linear-gradient(90deg, #219ebc 0%, #219ebc 30%, rgba(33, 158, 188, 0.15) 70%, rgba(255, 238, 219, 0) 100%)'
-            }}
+            className="rounded-3xl overflow-hidden relative h-full"
           >
-            {/* Inner container with content */}
-            <div className="flex flex-col lg:flex-row items-stretch">
+            {/* Layer 1: Background Image (bottom layer) */}
+            <div className="absolute inset-0 flex">
+              <div className="flex-1" /> {/* Empty left space */}
+              <div className="flex-1 relative">
+                <img 
+                  src="/images/landing-hero.png" 
+                  alt="Doctors collaborating on precision oncology cases"
+                  className="absolute inset-0 w-full h-full object-cover object-center"
+                />
+              </div>
+            </div>
+
+            {/* Layer 2: Gradient overlay (middle layer) */}
+            <div 
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, #219ebc 0%, #219ebc 35%, rgba(33, 158, 188, 0.85) 55%, rgba(33, 158, 188, 0.4) 75%, rgba(255, 238, 219, 0) 100%)'
+              }}
+            />
+
+            {/* Layer 3: Text Content (top layer) */}
+            <div className="relative z-10 flex flex-col lg:flex-row items-stretch h-full">
               {/* Left Column - Text Content */}
               <div className="flex-1 flex flex-col justify-center p-8 md:p-12 lg:p-16">
                 <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
@@ -81,14 +103,8 @@ const Landing = () => {
                 </div>
               </div>
 
-              {/* Right Column - Image */}
-              <div className="flex-1 flex items-center justify-center p-4 lg:p-0">
-                <img 
-                  src="/images/landing-hero.png" 
-                  alt="Doctors collaborating on precision oncology cases"
-                  className="w-full h-full object-cover lg:object-contain max-h-[400px] lg:max-h-none"
-                />
-              </div>
+              {/* Right Column - Empty space for image visibility */}
+              <div className="flex-1" />
             </div>
           </div>
         </div>
