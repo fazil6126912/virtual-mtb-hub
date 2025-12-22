@@ -1,11 +1,22 @@
 import { useState } from 'react';
-import { X, Calendar, Clock } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  subMonths,
+  getDay,
+  isToday,
+  isBefore,
+  startOfDay,
+} from 'date-fns';
 
 interface ScheduleMeetModalProps {
   open: boolean;
@@ -28,48 +39,80 @@ const ScheduleMeetModal = ({
   mtbName,
   onSchedule,
 }: ScheduleMeetModalProps) => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTime, setSelectedTime] = useState('10:00');
-  const [scheduleType, setScheduleType] = useState<'once' | 'custom'>('once');
-  const [repeatDays, setRepeatDays] = useState<number[]>([]);
+  const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleDayToggle = (dayIndex: number) => {
-    setRepeatDays(prev =>
+  const handleWeekdayToggle = (dayIndex: number) => {
+    setSelectedWeekdays(prev =>
       prev.includes(dayIndex)
         ? prev.filter(d => d !== dayIndex)
         : [...prev, dayIndex]
     );
   };
 
+  const handleDateToggle = (date: Date) => {
+    // Don't allow selecting dates in the past
+    if (isBefore(startOfDay(date), startOfDay(new Date()))) return;
+
+    setSelectedDates(prev => {
+      const exists = prev.some(d => isSameDay(d, date));
+      if (exists) {
+        return prev.filter(d => !isSameDay(d, date));
+      }
+      return [...prev, date];
+    });
+  };
+
+  const isDateSelected = (date: Date) => {
+    return selectedDates.some(d => isSameDay(d, date));
+  };
+
   const handleSchedule = async () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!selectedTime) return;
+    if (selectedDates.length === 0 && selectedWeekdays.length === 0) return;
 
     setIsSubmitting(true);
     try {
+      // Use the first selected date or today if only weekdays are selected
+      const baseDate = selectedDates.length > 0 ? selectedDates[0] : new Date();
+      const scheduleType = selectedWeekdays.length > 0 ? 'custom' : 'once';
+      
       await onSchedule(
-        selectedDate,
+        baseDate,
         selectedTime,
         scheduleType,
-        scheduleType === 'custom' && repeatDays.length > 0 ? repeatDays : null
+        selectedWeekdays.length > 0 ? selectedWeekdays : null
       );
+      
       onOpenChange(false);
       // Reset state
-      setSelectedDate(new Date());
       setSelectedTime('10:00');
-      setScheduleType('once');
-      setRepeatDays([]);
+      setSelectedWeekdays([]);
+      setSelectedDates([]);
+      setCurrentMonth(new Date());
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isValid = selectedDate && selectedTime && (scheduleType === 'once' || repeatDays.length > 0);
+  const isValid = selectedTime && (selectedDates.length > 0 || selectedWeekdays.length > 0);
+
+  // Calendar generation
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startDayOfWeek = getDay(monthStart);
+
+  // Create empty cells for days before month starts
+  const emptyCells = Array(startDayOfWeek).fill(null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <DialogTitle className="text-lg font-semibold text-foreground">
             Schedule a Meeting
           </DialogTitle>
@@ -78,118 +121,128 @@ const ScheduleMeetModal = ({
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Date & Time Picker */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              {/* Date Picker */}
-              <div className="flex-1">
-                <label className="text-sm font-medium text-foreground mb-2 block">Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal',
-                        !selectedDate && 'text-muted-foreground'
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {selectedDate ? format(selectedDate, 'PPP') : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Time Picker */}
-              <div className="flex-1">
-                <label className="text-sm font-medium text-foreground mb-2 block">Time</label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="time"
-                    value={selectedTime}
-                    onChange={(e) => setSelectedTime(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Schedule Type Selector */}
+        <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar">
+          {/* Time Picker */}
           <div className="space-y-3">
-            <label className="text-sm font-medium text-foreground">Schedule Type</label>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setScheduleType('once')}
-                className={cn(
-                  'flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  scheduleType === 'once'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Schedule Once
-              </button>
-              <button
-                type="button"
-                onClick={() => setScheduleType('custom')}
-                className={cn(
-                  'flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  scheduleType === 'custom'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Custom
-              </button>
+            <label className="text-sm font-medium text-foreground">Select Time</label>
+            <div className="flex items-center justify-center">
+              <input
+                type="time"
+                value={selectedTime}
+                onChange={(e) => setSelectedTime(e.target.value)}
+                className="text-4xl font-light text-center py-3 px-6 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                style={{ fontVariantNumeric: 'tabular-nums' }}
+              />
             </div>
           </div>
 
-          {/* Repeat Days (visible only for custom) */}
-          {scheduleType === 'custom' && (
-            <div className="space-y-3 animate-fade-in">
-              <label className="text-sm font-medium text-foreground">Repeat on</label>
-              <div className="flex justify-between gap-2">
+          {/* Weekday Selector */}
+          <div className="space-y-3">
+            <label className="text-sm font-medium text-foreground">Repeat Weekly</label>
+            <div className="flex justify-between gap-2">
+              {dayLabels.map((label, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleWeekdayToggle(index)}
+                  className={cn(
+                    'w-10 h-10 rounded-full text-sm font-medium transition-all duration-200',
+                    selectedWeekdays.includes(index)
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {selectedWeekdays.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Repeats every {selectedWeekdays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')}
+              </p>
+            )}
+          </div>
+
+          {/* Calendar */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-foreground">Select Date(s)</label>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                </button>
+                <span className="text-sm font-medium text-foreground min-w-[120px] text-center">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
+                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                >
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="bg-muted/30 rounded-xl p-3">
+              {/* Day headers */}
+              <div className="grid grid-cols-7 gap-1 mb-2">
                 {dayLabels.map((label, index) => (
-                  <button
+                  <div
                     key={index}
-                    type="button"
-                    onClick={() => handleDayToggle(index)}
-                    className={cn(
-                      'w-10 h-10 rounded-full text-sm font-medium transition-all',
-                      repeatDays.includes(index)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    )}
+                    className="h-8 flex items-center justify-center text-xs font-medium text-muted-foreground"
                   >
                     {label}
-                  </button>
+                  </div>
                 ))}
               </div>
-              {scheduleType === 'custom' && repeatDays.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Select at least one day for the meeting to repeat
-                </p>
-              )}
+
+              {/* Calendar days */}
+              <div className="grid grid-cols-7 gap-1">
+                {emptyCells.map((_, index) => (
+                  <div key={`empty-${index}`} className="h-9" />
+                ))}
+                {daysInMonth.map((day) => {
+                  const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
+                  const isSelected = isDateSelected(day);
+                  const isTodayDate = isToday(day);
+
+                  return (
+                    <button
+                      key={day.toISOString()}
+                      type="button"
+                      onClick={() => handleDateToggle(day)}
+                      disabled={isPast}
+                      className={cn(
+                        'h-9 w-full rounded-lg text-sm font-medium transition-all duration-200',
+                        isPast && 'text-muted-foreground/40 cursor-not-allowed',
+                        !isPast && !isSelected && 'hover:bg-muted text-foreground',
+                        isSelected && 'bg-primary text-primary-foreground shadow-md',
+                        isTodayDate && !isSelected && 'ring-1 ring-primary/50'
+                      )}
+                    >
+                      {format(day, 'd')}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
+
+            {selectedDates.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {selectedDates.length} date{selectedDates.length > 1 ? 's' : ''} selected
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-border">
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-muted/20">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -200,7 +253,7 @@ const ScheduleMeetModal = ({
           <Button
             onClick={handleSchedule}
             disabled={!isValid || isSubmitting}
-            className="vmtb-btn-primary"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {isSubmitting ? 'Scheduling...' : 'Schedule Meeting'}
           </Button>
