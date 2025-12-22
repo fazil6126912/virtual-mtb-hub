@@ -63,21 +63,7 @@ const Landing = () => {
   }
 
   return (
-    <div ref={containerRef} className="h-screen overflow-hidden">
-      <style>{`
-        /* Hide scrollbar for Chrome, Safari and Opera */
-        html::-webkit-scrollbar,
-        body::-webkit-scrollbar {
-          display: none;
-        }
-        
-        /* Hide scrollbar for IE, Edge and Firefox */
-        html,
-        body {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
-        }
-      `}</style>
+    <div ref={containerRef} className="overflow-hidden">
       {/* SECTION 1: HERO SECTION */}
       <section className="h-screen w-full bg-[#8ecae6] flex items-center justify-center px-4 md:px-8">
         <div className="w-[95%] max-w-8xl mx-auto my-8 md:my-12 h-[80vh]">

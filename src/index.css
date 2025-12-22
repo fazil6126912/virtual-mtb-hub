@@ -126,6 +126,13 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     overscroll-behavior: none;
+    -ms-overflow-style: none;      /* IE & Edge */
+    scrollbar-width: none;         /* Firefox */
+  }
+  
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;                 /* Chrome, Safari */
   }
 }
 
