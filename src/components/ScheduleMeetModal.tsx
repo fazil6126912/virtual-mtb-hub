@@ -46,11 +46,41 @@ const ScheduleMeetModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleWeekdayToggle = (dayIndex: number) => {
-    setSelectedWeekdays(prev =>
-      prev.includes(dayIndex)
+    setSelectedWeekdays(prev => {
+      const newWeekdays = prev.includes(dayIndex)
         ? prev.filter(d => d !== dayIndex)
-        : [...prev, dayIndex]
-    );
+        : [...prev, dayIndex];
+      
+      // Update selected dates based on new weekday selection
+      updateSelectedDatesForWeekdays(newWeekdays);
+      return newWeekdays;
+    });
+  };
+
+  // Update selected dates when weekdays change - selects all future dates matching those weekdays
+  const updateSelectedDatesForWeekdays = (weekdays: number[]) => {
+    if (weekdays.length === 0) return;
+    
+    const today = startOfDay(new Date());
+    const futureMonths = 3; // Look ahead 3 months
+    const endDate = addMonths(today, futureMonths);
+    const allDays = eachDayOfInterval({ start: today, end: endDate });
+    
+    // Get dates that match selected weekdays and aren't in the past
+    const weekdayDates = allDays.filter(day => {
+      const dayOfWeek = getDay(day);
+      return weekdays.includes(dayOfWeek) && !isBefore(startOfDay(day), today);
+    });
+    
+    // Merge with manually selected dates (preserve dates that don't match weekdays)
+    setSelectedDates(prev => {
+      const manualDates = prev.filter(d => !weekdays.includes(getDay(d)));
+      const merged = [...manualDates, ...weekdayDates];
+      // Remove duplicates
+      return merged.filter((date, index, self) => 
+        index === self.findIndex(d => isSameDay(d, date))
+      );
+    });
   };
 
   const handleDateToggle = (date: Date) => {

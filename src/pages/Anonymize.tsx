@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check, Eraser, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check, Eraser, CheckCircle, Undo2 } from 'lucide-react';
 import Header from '@/components/Header';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
@@ -753,8 +753,8 @@ const Anonymize = () => {
 
       {/* Main Layout */}
       <main className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left Sidebar - Tools Panel (Vertical, 50% Height) */}
-        <div className="w-24 bg-background border-r border-border p-3 flex flex-col gap-3 flex-shrink-0 h-1/2 overflow-y-auto scrollbar-hide">
+        {/* Left Sidebar - Tools Panel (Vertical, Full Height, No Scroll) */}
+        <div className="w-24 bg-background border-r border-border p-3 flex flex-col gap-3 flex-shrink-0 h-full overflow-hidden">
           <p className="text-[10px] text-muted-foreground text-center font-medium">Tools</p>
           
           {/* Rectangle Tool */}
@@ -848,19 +848,20 @@ const Anonymize = () => {
             </div>
           )}
 
-          {/* Divider */}
-          <div className="border-t border-border my-1" />
-
-          {/* Undo last shape */}
-          {shapes.length > 0 && (
-            <button
-              onClick={() => setShapes(prev => prev.slice(0, -1))}
-              className="w-full py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground text-[8px] transition-colors font-medium"
-              title="Undo last"
-            >
-              Undo ({shapes.length})
-            </button>
-          )}
+          {/* Undo Tool - Always visible */}
+          <button
+            onClick={() => setShapes(prev => prev.slice(0, -1))}
+            disabled={shapes.length === 0}
+            className={`w-full py-2 rounded-lg flex flex-col items-center justify-center gap-1 transition-colors text-center ${
+              shapes.length > 0 
+                ? 'bg-muted hover:bg-muted/80 text-foreground' 
+                : 'bg-muted/50 text-muted-foreground cursor-not-allowed'
+            }`}
+            title="Undo last action"
+          >
+            <Undo2 className="w-4 h-4" />
+            <span className="text-[8px] font-medium">Undo</span>
+          </button>
         </div>
 
         {/* Right: Canvas Area with Zoom */}

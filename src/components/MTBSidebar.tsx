@@ -19,6 +19,7 @@ interface MTBSidebarProps {
   onAddCase: () => void;
   onScheduleMeet: () => void;
   onAddExpert: () => void;
+  onCollapsedChange?: (collapsed: boolean) => void;
 }
 
 const sections = [
@@ -34,22 +35,28 @@ const MTBSidebar = ({
   onAddCase,
   onScheduleMeet,
   onAddExpert,
+  onCollapsedChange,
 }: MTBSidebarProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navigate = useNavigate();
 
+  const handleToggleCollapse = () => {
+    const newState = !isCollapsed;
+    setIsCollapsed(newState);
+    onCollapsedChange?.(newState);
+  };
+
   return (
-    <div
+    <aside
       className={cn(
-        'flex flex-col h-full bg-card border-r border-border transition-all duration-300 ease-in-out flex-shrink-0',
+        'fixed left-0 top-16 h-[calc(100vh-4rem)] flex flex-col bg-card border-r border-border transition-all duration-300 ease-in-out flex-shrink-0 z-40',
         isCollapsed ? 'w-16' : 'w-56'
       )}
-      style={{ minHeight: '100vh', height: '100%' }}
     >
       {/* Fixed Hamburger Toggle Button */}
       <div className="flex items-center justify-start p-3 border-b border-border">
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={handleToggleCollapse}
           className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
@@ -150,7 +157,7 @@ const MTBSidebar = ({
           </button>
         </div>
       </div>
-    </div>
+    </aside>
   );
 };
 

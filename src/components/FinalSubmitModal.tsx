@@ -62,14 +62,14 @@ const FinalSubmitModal = ({
           <AlertDialogTitle className="text-lg font-semibold">
             Final Submission
           </AlertDialogTitle>
-          <AlertDialogDescription asChild>
+            <AlertDialogDescription asChild>
             <div className="space-y-4 text-sm text-muted-foreground">
               <p>
                 You are about to submit this case to the Board.
               </p>
               <p>
                 Incorrect digitization may lead to inaccurate treatment recommendations.
-                Please ensure all data has been accurately digitized.
+                Please ensure all the data have been accurately digitized.
               </p>
             </div>
           </AlertDialogDescription>
@@ -96,7 +96,7 @@ const FinalSubmitModal = ({
           </div>
           {showError && (
             <p className="text-xs text-destructive mt-2 ml-7">
-              Please confirm accuracy before submitting.
+              Please confirm before submitting.
             </p>
           )}
         </div>
