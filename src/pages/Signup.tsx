@@ -70,7 +70,7 @@ const Signup = () => {
     setLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (signup({ name, email, phone, password, profilePicture })) {
+    if (signup({ name, email, phone, password, profilePicture, profession, hospitalName })) {
       toast.success('Account created! Please verify your email.');
       navigate('/otp');
     } else {

@@ -36,9 +36,7 @@ const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
     navigate(`/cases/${caseId}`);
   };
 
-  const handleCardClick = () => {
-    navigate(`/mtbs/${mtb.id}`);
-  };
+  // Removed handleCardClick as only title should navigate
 
   const handleTitleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -47,9 +45,8 @@ const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
 
   return (
     <div
-      onClick={handleCardClick}
-      className={`vmtb-card vmtb-card-hover cursor-grab overflow-hidden animate-fade-in flex flex-col h-56 ${
-        isDragging ? 'opacity-50 ring-2 ring-primary' : ''
+      className={`vmtb-card vmtb-card-hover overflow-hidden animate-fade-in flex flex-col h-56 ${
+        isDragging ? 'opacity-50 ring-2 ring-primary cursor-grabbing' : 'cursor-default'
       }`}
     >
       {/* Header with gradient */}

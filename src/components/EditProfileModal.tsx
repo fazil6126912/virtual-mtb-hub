@@ -43,6 +43,8 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
       name: name.trim(),
       phone: phone.trim() || null,
       // Extended fields would be saved here
+      profession,
+      hospital_name: hospitalName.trim() || null,
     });
 
     if (error) {
