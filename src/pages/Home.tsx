@@ -7,6 +7,7 @@ import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
 import { format, parseISO, isAfter, startOfToday } from 'date-fns';
+import { ChevronDown } from 'lucide-react';
 import CancerTypeSelect from '@/components/CancerTypeSelect';
 import MeetingsModal from '@/components/MeetingsModal';
 
@@ -80,8 +81,15 @@ const Home = () => {
             <div className="mt-10">
               <p className="home-discussion-title">Upcoming Discussion</p>
               <div className="home-discussion-card">
-                <UpcomingMeetingCardContent onShowMore={handleShowMoreMeetings} />
+                <UpcomingMeetingCardContent />
               </div>
+              <button
+                type="button"
+                onClick={handleShowMoreMeetings}
+                className="mt-3 text-primary hover:underline text-sm font-medium"
+              >
+                Show more
+              </button>
             </div>
           </div>
 
@@ -120,25 +128,18 @@ const Home = () => {
               {/* Sex Field - Themed dropdown */}
               <div className="home-form-field">
                 <label className="home-form-label">Sex</label>
-                <div className="relative">
+                <div className="relative w-full">
                   <select
                     value={sex}
                     onChange={e => setSex(e.target.value)}
-                    className="home-form-input appearance-none pr-10 cursor-pointer"
+                    className="home-form-input w-full appearance-none pr-10 cursor-pointer"
                   >
                     <option value="">Select sex</option>
                     <option value="Male">Male</option>
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
-                  <svg
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
                 </div>
               </div>
 
@@ -188,7 +189,7 @@ const Home = () => {
 };
 
 // Inline component for meeting card content (without the outer wrapper)
-const UpcomingMeetingCardContent = ({ onShowMore }: { onShowMore: () => void }) => {
+const UpcomingMeetingCardContent = () => {
   const { meetings } = useMeetings();
 
   const today = startOfToday();
@@ -221,10 +222,10 @@ const UpcomingMeetingCardContent = ({ onShowMore }: { onShowMore: () => void }) 
     <div>
       {nearestMeeting ? (
         <div>
-          <h4 className="font-semibold text-foreground text-base mb-3">
+          <h4 className="font-semibold text-foreground text-base mb-2">
             {nearestMeeting.mtb_name || 'MTB Meeting'}
           </h4>
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
             <span>{formatMeetingDate(nearestMeeting.scheduled_date)}</span>
           </div>
           <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -232,18 +233,13 @@ const UpcomingMeetingCardContent = ({ onShowMore }: { onShowMore: () => void }) 
           </div>
         </div>
       ) : (
-        <div className="text-muted-foreground text-sm py-4">
-          No upcoming meetings scheduled
+        <div className="flex flex-col items-center justify-center py-2 text-center">
+          <svg className="w-10 h-10 text-muted-foreground/40 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <p className="text-muted-foreground text-sm">No upcoming meetings scheduled</p>
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={onShowMore}
-        className="mt-4 text-primary hover:underline text-sm font-medium"
-      >
-        Show more
-      </button>
     </div>
   );
 };

@@ -125,8 +125,8 @@ const CancerTypeSelect = ({
   };
 
   return (
-    <div ref={containerRef} className="relative">
-      <div className="relative">
+    <div ref={containerRef} className="relative w-full">
+      <div className="relative w-full">
         <input
           ref={inputRef}
           type="text"
@@ -134,11 +134,11 @@ const CancerTypeSelect = ({
           onChange={handleInputChange}
           onFocus={handleFocus}
           placeholder={placeholder}
-          className={cn('home-form-input pr-10', className)}
+          className={cn('home-form-input w-full pr-10', className)}
         />
         <ChevronDown
           className={cn(
-            'absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground transition-transform',
+            'absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none transition-transform',
             isOpen && 'rotate-180'
           )}
         />
