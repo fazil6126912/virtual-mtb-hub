@@ -654,127 +654,131 @@ export function useSupabaseData() {
   };
 
   // Load a case for editing (fetch full document data with storage URLs)
-  const loadCaseForEditing = async (caseId: string): Promise<FullCase | null> => {
-    if (!user) return null;
+  const loadCaseForEditing = useCallback(
+    async (caseId: string): Promise<FullCase | null> => {
+      if (!user) return null;
 
-    try {
-      // Fetch case
-      const { data: caseData, error: caseError } = await supabase
-        .from('cases')
-        .select('*')
-        .eq('id', caseId)
-        .eq('created_by', user.id)
-        .single();
+      try {
+        // Fetch case
+        const { data: caseData, error: caseError } = await supabase
+          .from('cases')
+          .select('*')
+          .eq('id', caseId)
+          .eq('created_by', user.id)
+          .single();
 
-      if (caseError) throw caseError;
+        if (caseError) throw caseError;
 
-      // Fetch patient
-      const { data: patient, error: patientError } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('case_id', caseId)
-        .single();
+        // Fetch patient
+        const { data: patient, error: patientError } = await supabase
+          .from('patients')
+          .select('*')
+          .eq('case_id', caseId)
+          .single();
 
-      if (patientError) throw patientError;
+        if (patientError) throw patientError;
 
-      // Fetch documents
-      const { data: documents, error: documentsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('case_id', caseId);
+        // Fetch documents
+        const { data: documents, error: documentsError } = await supabase
+          .from('documents')
+          .select('*')
+          .eq('case_id', caseId);
 
-      if (documentsError) throw documentsError;
+        if (documentsError) throw documentsError;
 
-      // Build files with signed URLs for private bucket access
-      const files: UploadedFile[] = await Promise.all(
-        (documents || []).map(async (doc: DbDocument) => {
-          let dataURL = '';
-          let anonymizedPages: string[] | undefined;
-          
-          const isPdf = doc.file_type === 'pdf';
-          
-          if (doc.storage_path) {
-            try {
-              // Check if this is a multi-page anonymized PDF by looking for _page_ pattern
-              const hasPagePattern = doc.storage_path.includes('_page_');
-              
-              if (isPdf && hasPagePattern && doc.page_count > 1) {
-                // Multi-page anonymized PDF - load all pages in parallel
-                const basePath = doc.storage_path.replace(/_page_\d+\.png$/, '');
-                
-                const pagePromises = Array.from({ length: doc.page_count }, (_, i) => {
-                  const pagePath = `${basePath}_page_${i}.png`;
-                  return supabase.storage
+        // Build files with signed URLs for private bucket access
+        const files: UploadedFile[] = await Promise.all(
+          (documents || []).map(async (doc: DbDocument) => {
+            let dataURL = '';
+            let anonymizedPages: string[] | undefined;
+
+            const isPdf = doc.file_type === 'pdf';
+
+            if (doc.storage_path) {
+              try {
+                // Check if this is a multi-page anonymized PDF by looking for _page_ pattern
+                const hasPagePattern = doc.storage_path.includes('_page_');
+
+                if (isPdf && hasPagePattern && doc.page_count > 1) {
+                  // Multi-page anonymized PDF - load all pages in parallel
+                  const basePath = doc.storage_path.replace(/_page_\d+\.png$/, '');
+
+                  const pagePromises = Array.from({ length: doc.page_count }, (_, i) => {
+                    const pagePath = `${basePath}_page_${i}.png`;
+                    return supabase.storage
+                      .from('case-documents')
+                      .createSignedUrl(pagePath, 3600)
+                      .then(({ data }) => data?.signedUrl || null)
+                      .catch(() => null);
+                  });
+
+                  const pageResults = await Promise.all(pagePromises);
+                  anonymizedPages = pageResults.filter((url): url is string => url !== null);
+
+                  // Use first page as main dataURL for backwards compatibility
+                  if (anonymizedPages.length > 0) {
+                    dataURL = anonymizedPages[0];
+                  }
+                } else {
+                  // Single file (image, non-anonymized PDF, or single-page anonymized PDF)
+                  const { data: signedData } = await supabase.storage
                     .from('case-documents')
-                    .createSignedUrl(pagePath, 3600)
-                    .then(({ data }) => data?.signedUrl || null)
-                    .catch(() => null);
-                });
-                
-                const pageResults = await Promise.all(pagePromises);
-                anonymizedPages = pageResults.filter((url): url is string => url !== null);
-                
-                // Use first page as main dataURL for backwards compatibility
-                if (anonymizedPages.length > 0) {
-                  dataURL = anonymizedPages[0];
-                }
-              } else {
-                // Single file (image, non-anonymized PDF, or single-page anonymized PDF)
-                const { data: signedData } = await supabase.storage
-                  .from('case-documents')
-                  .createSignedUrl(doc.storage_path, 3600);
+                    .createSignedUrl(doc.storage_path, 3600);
 
-                if (signedData?.signedUrl) {
-                  dataURL = signedData.signedUrl;
-                  
-                  // For single-page anonymized PDFs, also set anonymizedPages
-                  if (isPdf && hasPagePattern) {
-                    anonymizedPages = [dataURL];
+                  if (signedData?.signedUrl) {
+                    dataURL = signedData.signedUrl;
+
+                    // For single-page anonymized PDFs, also set anonymizedPages
+                    if (isPdf && hasPagePattern) {
+                      anonymizedPages = [dataURL];
+                    }
                   }
                 }
+              } catch (err) {
+                console.error('[loadCaseForEditing] Error loading file:', doc.file_name, err);
               }
-            } catch (err) {
-              console.error('[loadCaseForEditing] Error loading file:', doc.file_name, err);
             }
-          }
 
-          return {
-            id: doc.id,
-            name: doc.file_name,
-            size: 0,
-            type: isPdf ? 'application/pdf' : 'image/png',
-            dataURL,
-            anonymizedPages,
-            fileCategory: doc.file_category || '',
-            extractedData: doc.digitized_text || undefined,
-            anonymizedVisited: doc.is_anonymized,
-            digitizedVisited: doc.is_digitized,
-          };
-        })
-      );
+            return {
+              id: doc.id,
+              name: doc.file_name,
+              size: 0,
+              type: isPdf ? 'application/pdf' : 'image/png',
+              dataURL,
+              anonymizedPages,
+              fileCategory: doc.file_category || '',
+              extractedData: doc.digitized_text || undefined,
+              anonymizedVisited: doc.is_anonymized,
+              digitizedVisited: doc.is_digitized,
+            };
+          })
+        );
 
-      return {
-        id: caseData.id,
-        caseName: caseData.case_name,
-        patientId: patient.id,
-        patient: {
-          name: patient.anonymized_name,
-          age: patient.age?.toString() || '',
-          sex: patient.sex || '',
-          cancerType: caseData.cancer_type || '',
+        return {
+          id: caseData.id,
           caseName: caseData.case_name,
-        },
-        files,
-        status: caseData.status === 'archived' ? 'Completed' : 'Pending',
-        createdDate: caseData.created_at,
-        ownerId: caseData.created_by,
-      };
-    } catch (err) {
-      console.error('Error loading case for editing:', err);
-      toast.error('Failed to load case');
-      return null;
-    }
-  };
+          patientId: patient.id,
+          patient: {
+            name: patient.anonymized_name,
+            age: patient.age?.toString() || '',
+            sex: patient.sex || '',
+            cancerType: caseData.cancer_type || '',
+            caseName: caseData.case_name,
+          },
+          files,
+          status: caseData.status === 'archived' ? 'Completed' : 'Pending',
+          createdDate: caseData.created_at,
+          ownerId: caseData.created_by,
+        };
+      } catch (err) {
+        console.error('Error loading case for editing:', err);
+        toast.error('Failed to load case');
+        return null;
+      }
+    },
+    [user]
+  );
+
 
   // Check if case name already exists
   const checkCaseNameExists = async (caseName: string): Promise<boolean> => {
