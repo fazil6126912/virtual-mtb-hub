@@ -78,7 +78,7 @@ const Home = () => {
             </div>
 
             {/* Upcoming Meetings - positioned to align bottom with form */}
-            <div className="mt-[180px]">
+            <div className="mt-[220px]">
               <p className="home-discussion-title">Upcoming Discussion</p>
               <div className="home-discussion-card">
                 <UpcomingMeetingCardContent />
