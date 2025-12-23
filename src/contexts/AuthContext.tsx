@@ -9,6 +9,8 @@ interface Profile {
   email: string;
   phone: string | null;
   avatar_url: string | null;
+  profession: string | null;
+  hospital_name: string | null;
 }
 
 interface AuthContextType {
@@ -16,7 +18,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, phone?: string, avatarUrl?: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name: string, profession: string, phone?: string, hospitalName?: string, avatarUrl?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -82,7 +84,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     email: string,
     password: string,
     name: string,
+    profession: string,
     phone?: string,
+    hospitalName?: string,
     avatarUrl?: string
   ): Promise<{ error: Error | null }> => {
     const redirectUrl = `${window.location.origin}/`;
@@ -96,6 +100,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           name,
           phone,
           avatar_url: avatarUrl,
+          profession,
+          hospital_name: hospitalName,
         },
       },
     });
