@@ -81,7 +81,7 @@ const Home = () => {
             <div className="mt-[220px]">
               <p className="home-discussion-title">Upcoming Discussion</p>
               <div className="home-discussion-card">
-                <UpcomingMeetingCardContent />
+                <UpcomingMeetingCardContent meetings={meetings} />
               </div>
               <button
                 type="button"
@@ -189,9 +189,7 @@ const Home = () => {
 };
 
 // Inline component for meeting card content (without the outer wrapper)
-const UpcomingMeetingCardContent = () => {
-  const { meetings } = useMeetings();
-
+const UpcomingMeetingCardContent = ({ meetings }: { meetings: any[] }) => {
   const today = startOfToday();
   const upcomingMeetings = meetings
     .filter((m: any) => {
