@@ -148,51 +148,56 @@ export function useSupabaseData() {
       const isPdf = file.type === 'application/pdf';
       const hasAnonymizedPages = isPdf && file.anonymizedPages && file.anonymizedPages.length > 0;
 
-      // For PDFs with anonymized pages, upload each page as a separate image
+      // For PDFs with anonymized pages, upload each page as a separate image IN PARALLEL
       if (hasAnonymizedPages) {
-        console.log('[uploadFileToStorage] Uploading anonymized PDF pages for:', file.name);
-        const pageUrls: string[] = [];
+        console.log('[uploadFileToStorage] Uploading anonymized PDF pages in parallel for:', file.name);
         
-        for (let i = 0; i < file.anonymizedPages!.length; i++) {
-          const pageDataURL = file.anonymizedPages![i];
-          
-          // Skip blob: URLs
-          if (pageDataURL.startsWith('blob:')) {
-            console.warn('[uploadFileToStorage] Skipping blob URL for page:', i);
-            continue;
+        // Filter out blob: URLs and prepare upload promises
+        const validPages = file.anonymizedPages!
+          .map((pageDataURL, i) => ({ pageDataURL, index: i }))
+          .filter(({ pageDataURL }) => !pageDataURL.startsWith('blob:'));
+
+        // Upload all pages in parallel
+        const uploadPromises = validPages.map(async ({ pageDataURL, index }) => {
+          try {
+            const response = await fetch(pageDataURL);
+            const blob = await response.blob();
+            
+            const storagePath = `${user.id}/${caseId}/${file.id}_page_${index}.png`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('case-documents')
+              .upload(storagePath, blob, {
+                contentType: 'image/png',
+                upsert: true,
+              });
+
+            if (uploadError) {
+              console.error(`[uploadFileToStorage] Error uploading page ${index}:`, uploadError);
+              return { index, signedUrl: null };
+            }
+
+            const { data: signedData } = await supabase.storage
+              .from('case-documents')
+              .createSignedUrl(storagePath, 3600);
+
+            return { index, signedUrl: signedData?.signedUrl || null };
+          } catch (err) {
+            console.error(`[uploadFileToStorage] Error processing page ${index}:`, err);
+            return { index, signedUrl: null };
           }
+        });
 
-          const response = await fetch(pageDataURL);
-          const blob = await response.blob();
-          
-          // Store each page with a page index suffix
-          const storagePath = `${user.id}/${caseId}/${file.id}_page_${i}.png`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('case-documents')
-            .upload(storagePath, blob, {
-              contentType: 'image/png',
-              upsert: true,
-            });
-
-          if (uploadError) {
-            console.error(`[uploadFileToStorage] Error uploading page ${i}:`, uploadError);
-            continue;
-          }
-
-          // Get signed URL for this page
-          const { data: signedData } = await supabase.storage
-            .from('case-documents')
-            .createSignedUrl(storagePath, 3600);
-
-          if (signedData?.signedUrl) {
-            pageUrls.push(signedData.signedUrl);
-          }
-        }
-
-        console.log('[uploadFileToStorage] Uploaded', pageUrls.length, 'pages for PDF');
+        const results = await Promise.all(uploadPromises);
         
-        // Return the first page URL as the main URL for backwards compatibility
+        // Sort by index and extract URLs
+        const pageUrls = results
+          .sort((a, b) => a.index - b.index)
+          .map(r => r.signedUrl)
+          .filter((url): url is string => url !== null);
+
+        console.log('[uploadFileToStorage] Uploaded', pageUrls.length, 'pages for PDF in parallel');
+        
         const mainStoragePath = `${user.id}/${caseId}/${file.id}_page_0.png`;
         return {
           storagePath: mainStoragePath,
@@ -317,21 +322,18 @@ export function useSupabaseData() {
       }
       console.log('[createPatientAndCase] Patient created:', patient);
 
-      // 3. Upload files to storage and create document records
-      console.log('[createPatientAndCase] Step 3: Processing', files.length, 'documents...');
-      const documentRecords = [];
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        console.log(`[createPatientAndCase] Processing file ${i + 1}/${files.length}:`, file.name);
-        
-        // Upload file to storage
+      // 3. Upload files to storage IN PARALLEL and create document records
+      console.log('[createPatientAndCase] Step 3: Processing', files.length, 'documents in parallel...');
+      
+      const uploadPromises = files.map(async (file) => {
+        console.log(`[createPatientAndCase] Starting upload for:`, file.name);
         const uploadResult = await uploadFileToStorage(file, newCase.id);
-        console.log('[createPatientAndCase] Upload result:', uploadResult ? 'success' : 'failed');
+        console.log('[createPatientAndCase] Upload result for', file.name, ':', uploadResult ? 'success' : 'failed');
         
         const isPdf = file.type === 'application/pdf';
         const pageCount = isPdf ? (file.pdfPages?.length || file.anonymizedPages?.length || 1) : 1;
 
-        documentRecords.push({
+        return {
           case_id: newCase.id,
           file_name: file.name,
           file_type: isPdf ? 'pdf' : 'image',
@@ -342,8 +344,10 @@ export function useSupabaseData() {
           digitized_text: file.extractedData || null,
           is_anonymized: file.anonymizedVisited || false,
           is_digitized: file.digitizedVisited || false,
-        });
-      }
+        };
+      });
+
+      const documentRecords = await Promise.all(uploadPromises);
 
       console.log('[createPatientAndCase] Document records prepared:', documentRecords.length);
 
