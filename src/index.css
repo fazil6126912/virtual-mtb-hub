@@ -316,18 +316,61 @@
      =========================== */
 
   .bg-home-page {
-    background-color: #f6f8fa;
+    background: linear-gradient(135deg, hsl(185, 52%, 75%) 0%, hsl(180, 45%, 70%) 50%, hsl(175, 40%, 65%) 100%);
+    min-height: 100vh;
+  }
+
+  /* Welcome Section */
+  .home-welcome-text {
+    font-size: 42px;
+    font-weight: 500;
+    font-style: italic;
+    color: hsl(200, 25%, 25%);
+    line-height: 1.2;
+  }
+
+  .home-doctor-name {
+    font-size: 48px;
+    font-weight: 600;
+    font-style: italic;
+    color: hsl(180, 60%, 35%);
+    line-height: 1.2;
+  }
+
+  .home-subtext-new {
+    font-size: 18px;
+    font-weight: 400;
+    color: hsl(200, 20%, 30%);
+    line-height: 1.6;
+    margin-top: 16px;
+  }
+
+  /* Upcoming Discussion Card */
+  .home-discussion-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 24px;
+    min-height: 180px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .home-discussion-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: hsl(200, 25%, 20%);
+    margin-bottom: 16px;
   }
 
   /* Form Card Styling */
   .home-form-card {
     background: #ffffff;
-    border-radius: 16px;
-    box-shadow: 0 4px 32px rgba(0, 0, 0, 0.06);
+    border-radius: 20px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.1);
     padding: 32px 28px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
+    min-height: 500px;
   }
 
   .home-form-field {
@@ -344,8 +387,8 @@
 
   .home-form-input {
     height: 44px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
     border-radius: 10px;
     padding: 12px;
     font-size: 14px;
@@ -360,8 +403,8 @@
 
   .home-form-input:focus {
     outline: none;
-    border-color: #25ae82;
-    box-shadow: 0 0 0 3px rgba(37, 174, 130, 0.1);
+    border-color: hsl(180, 60%, 35%);
+    box-shadow: 0 0 0 3px hsla(180, 60%, 35%, 0.15);
   }
 
   .home-form-input:focus-visible {
@@ -378,12 +421,12 @@
   .home-btn-next {
     height: 48px;
     border-radius: 10px;
-    background: linear-gradient(to right, #1cb881, #14a36b);
+    background: linear-gradient(to right, hsl(160, 70%, 40%), hsl(170, 65%, 35%));
     border: none;
     font-size: 16px;
     font-weight: 600;
     color: #ffffff;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     cursor: pointer;
     transition: transform 200ms ease, box-shadow 200ms ease;
     margin-top: 8px;
@@ -391,7 +434,7 @@
 
   .home-btn-next:hover {
     transform: scale(1.01);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
   }
 
   .home-btn-next:active {
@@ -404,67 +447,23 @@
     transform: none;
   }
 
-  /* Illustration Box */
-  .home-illustration-box {
-    width: 180px;
-    height: 180px;
-    background: rgba(37, 174, 130, 0.1);
-    border-radius: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Right Column Heading */
-  .home-heading {
-    font-size: 24px;
-    font-weight: 600;
-    color: #1a1a1a;
-    margin-top: 32px;
-    max-width: 420px;
-    line-height: 1.4;
-    text-align: center;
-  }
-
-  /* Right Column Subtext */
-  .home-subtext {
-    font-size: 15px;
-    font-weight: 400;
-    color: #6b7280;
-    margin-top: 8px;
-    max-width: 380px;
-    line-height: 1.6;
-    text-align: center;
-  }
-
-  /* Accent Underline */
-  .home-accent-bar {
-    width: 42px;
-    height: 4px;
-    background: #25ae82;
-    border-radius: 2px;
-    margin-top: 16px;
-  }
-
   /* Tablet Responsiveness */
   @media (max-width: 1024px) and (min-width: 768px) {
     .home-form-card {
       padding: 24px;
+      min-height: auto;
     }
 
-    .home-illustration-box {
-      width: 160px;
-      height: 160px;
+    .home-welcome-text {
+      font-size: 32px;
     }
 
-    .home-heading {
-      font-size: 22px;
-      max-width: 350px;
+    .home-doctor-name {
+      font-size: 38px;
     }
 
-    .home-subtext {
-      font-size: 14px;
-      max-width: 320px;
+    .home-subtext-new {
+      font-size: 16px;
     }
   }
 
@@ -473,6 +472,19 @@
     .home-form-card {
       padding: 20px;
       gap: 16px;
+      min-height: auto;
+    }
+
+    .home-welcome-text {
+      font-size: 26px;
+    }
+
+    .home-doctor-name {
+      font-size: 30px;
+    }
+
+    .home-subtext-new {
+      font-size: 15px;
     }
 
     .home-form-label {
@@ -494,21 +506,9 @@
       font-size: 15px;
     }
 
-    .home-illustration-box {
-      width: 140px;
-      height: 140px;
-      margin-top: 2rem;
-    }
-
-    .home-heading {
-      font-size: 20px;
-      max-width: 100%;
-      margin-top: 20px;
-    }
-
-    .home-subtext {
-      font-size: 14px;
-      max-width: 100%;
+    .home-discussion-card {
+      min-height: 140px;
+      padding: 20px;
     }
   }
 
@@ -523,4 +523,3 @@
     display: none;                 /* Chrome, Safari */
   }
 }
-

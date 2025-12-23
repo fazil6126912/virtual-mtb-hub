@@ -27,7 +27,6 @@ const Home = () => {
 
   // Extract doctor name from profile
   const doctorName = profile?.name || '';
-  const welcomeText = doctorName ? `Welcome back, Dr. ${doctorName}` : 'Welcome back';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,24 +56,20 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-home-page relative overflow-hidden">
-      {/* Radial gradient accent */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(circle at center right, rgba(33, 150, 243, 0.08) 0%, rgba(33, 150, 243, 0) 60%)'
-      }} />
-      
+    <div className="min-h-screen bg-home-page relative">
       <Header />
       
-      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-10 items-start min-h-[calc(100vh-150px)]">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-8 lg:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-8 lg:gap-12 items-start">
           {/* Left Column: Welcome + Meetings */}
-          <div className="animate-fade-in pt-4 lg:pt-8">
+          <div className="pt-4 lg:pt-8">
             {/* Welcome Section */}
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                {welcomeText}
-              </h1>
-              <p className="mt-3 text-muted-foreground text-base leading-relaxed">
+              <p className="home-welcome-text">Welcome back,</p>
+              <p className="home-doctor-name">
+                {doctorName ? `Dr. ${doctorName}` : 'Doctor'}
+              </p>
+              <p className="home-subtext-new">
                 Ready to discuss with experts you trust?
                 <br />
                 Start with uploading a case.
@@ -82,11 +77,16 @@ const Home = () => {
             </div>
 
             {/* Upcoming Meetings */}
-            <UpcomingMeetingCard onShowMore={handleShowMoreMeetings} />
+            <div className="mt-10">
+              <p className="home-discussion-title">Upcoming Discussion</p>
+              <div className="home-discussion-card">
+                <UpcomingMeetingCardContent onShowMore={handleShowMoreMeetings} />
+              </div>
+            </div>
           </div>
 
           {/* Right Column: Form Card */}
-          <form onSubmit={handleSubmit} className="animate-fade-in">
+          <form onSubmit={handleSubmit}>
             <div className="home-form-card">
               {/* Name Field */}
               <div className="home-form-field">
@@ -183,6 +183,68 @@ const Home = () => {
         meetings={meetings}
         loading={meetingsLoading}
       />
+    </div>
+  );
+};
+
+// Inline component for meeting card content (without the outer wrapper)
+const UpcomingMeetingCardContent = ({ onShowMore }: { onShowMore: () => void }) => {
+  const { meetings } = useMeetings();
+  const { format, parseISO, isAfter, startOfToday } = require('date-fns');
+
+  const today = startOfToday();
+  const upcomingMeetings = meetings
+    .filter((m: any) => {
+      const meetingDate = parseISO(m.scheduled_date);
+      return isAfter(meetingDate, today) || format(meetingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+    })
+    .sort((a: any, b: any) => {
+      const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
+      const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+  const nearestMeeting = upcomingMeetings[0];
+
+  const formatMeetingDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return format(date, 'EEEE, MMMM d, yyyy');
+  };
+
+  const formatMeetingTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return format(date, 'h:mm a');
+  };
+
+  return (
+    <div>
+      {nearestMeeting ? (
+        <div>
+          <h4 className="font-semibold text-foreground text-base mb-3">
+            {nearestMeeting.mtb_name || 'MTB Meeting'}
+          </h4>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
+            <span>{formatMeetingDate(nearestMeeting.scheduled_date)}</span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <span>{formatMeetingTime(nearestMeeting.scheduled_time)}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="text-muted-foreground text-sm py-4">
+          No upcoming meetings scheduled
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onShowMore}
+        className="mt-4 text-primary hover:underline text-sm font-medium"
+      >
+        Show more
+      </button>
     </div>
   );
 };
