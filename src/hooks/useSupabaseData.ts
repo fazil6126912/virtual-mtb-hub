@@ -694,49 +694,47 @@ export function useSupabaseData() {
           const isPdf = doc.file_type === 'pdf';
           
           if (doc.storage_path) {
-            // For PDFs with multiple pages, load all anonymized page images
-            if (isPdf && doc.page_count > 0) {
-              // Check if this is a multi-page PDF by looking for page_0 pattern
-              const basePath = doc.storage_path.replace(/_page_\d+\.png$/, '');
+            try {
+              // Check if this is a multi-page anonymized PDF by looking for _page_ pattern
               const hasPagePattern = doc.storage_path.includes('_page_');
               
-              if (hasPagePattern) {
-                // Load all pages
-                anonymizedPages = [];
-                for (let i = 0; i < doc.page_count; i++) {
+              if (isPdf && hasPagePattern && doc.page_count > 1) {
+                // Multi-page anonymized PDF - load all pages in parallel
+                const basePath = doc.storage_path.replace(/_page_\d+\.png$/, '');
+                
+                const pagePromises = Array.from({ length: doc.page_count }, (_, i) => {
                   const pagePath = `${basePath}_page_${i}.png`;
-                  const { data: signedData } = await supabase.storage
+                  return supabase.storage
                     .from('case-documents')
-                    .createSignedUrl(pagePath, 3600);
-                  
-                  if (signedData?.signedUrl) {
-                    anonymizedPages.push(signedData.signedUrl);
-                  }
-                }
+                    .createSignedUrl(pagePath, 3600)
+                    .then(({ data }) => data?.signedUrl || null)
+                    .catch(() => null);
+                });
+                
+                const pageResults = await Promise.all(pagePromises);
+                anonymizedPages = pageResults.filter((url): url is string => url !== null);
                 
                 // Use first page as main dataURL for backwards compatibility
                 if (anonymizedPages.length > 0) {
                   dataURL = anonymizedPages[0];
                 }
               } else {
-                // Single file (original PDF not anonymized or old format)
+                // Single file (image, non-anonymized PDF, or single-page anonymized PDF)
                 const { data: signedData } = await supabase.storage
                   .from('case-documents')
                   .createSignedUrl(doc.storage_path, 3600);
 
                 if (signedData?.signedUrl) {
                   dataURL = signedData.signedUrl;
+                  
+                  // For single-page anonymized PDFs, also set anonymizedPages
+                  if (isPdf && hasPagePattern) {
+                    anonymizedPages = [dataURL];
+                  }
                 }
               }
-            } else {
-              // Regular image - get signed URL
-              const { data: signedData } = await supabase.storage
-                .from('case-documents')
-                .createSignedUrl(doc.storage_path, 3600);
-
-              if (signedData?.signedUrl) {
-                dataURL = signedData.signedUrl;
-              }
+            } catch (err) {
+              console.error('[loadCaseForEditing] Error loading file:', doc.file_name, err);
             }
           }
 
