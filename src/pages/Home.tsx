@@ -2,8 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
+import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
+import CancerTypeSelect from '@/components/CancerTypeSelect';
+import UpcomingMeetingCard from '@/components/UpcomingMeetingCard';
+import MeetingsModal from '@/components/MeetingsModal';
 
 const Home = () => {
   const [name, setName] = useState('');
@@ -12,9 +17,17 @@ const Home = () => {
   const [cancerType, setCancerType] = useState('');
   const [caseName, setCaseName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [meetingsModalOpen, setMeetingsModalOpen] = useState(false);
+  
   const { setCurrentPatient } = useApp();
+  const { profile } = useAuth();
   const { checkCaseNameExists } = useSupabaseData();
+  const { meetings, loading: meetingsLoading } = useMeetings();
   const navigate = useNavigate();
+
+  // Extract doctor name from profile
+  const doctorName = profile?.name || '';
+  const welcomeText = doctorName ? `Welcome back, Dr. ${doctorName}` : 'Welcome back';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +39,6 @@ const Home = () => {
 
     setIsSubmitting(true);
     try {
-      // Check if case name already exists in database
       const caseNameExists = await checkCaseNameExists(caseName.trim());
       if (caseNameExists) {
         toast.error('You already have a case with this name. Please choose a different name.');
@@ -40,19 +52,41 @@ const Home = () => {
     }
   };
 
+  const handleShowMoreMeetings = () => {
+    setMeetingsModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-home-page relative overflow-hidden">
-      {/* Radial gradient accent on right side */}
+      {/* Radial gradient accent */}
       <div className="absolute inset-0 pointer-events-none" style={{
         background: 'radial-gradient(circle at center right, rgba(33, 150, 243, 0.08) 0%, rgba(33, 150, 243, 0) 60%)'
       }} />
       
       <Header />
       
-      <main className="relative z-10 max-w-6xl mx-auto px-10 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-8 items-stretch min-h-[calc(100vh-200px)]">
-          {/* Left Column: Form Card */}
-          <form onSubmit={handleSubmit} className="animate-fade-in flex flex-col justify-center">
+      <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-10 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-10 items-start min-h-[calc(100vh-150px)]">
+          {/* Left Column: Welcome + Meetings */}
+          <div className="animate-fade-in pt-4 lg:pt-8">
+            {/* Welcome Section */}
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+                {welcomeText}
+              </h1>
+              <p className="mt-3 text-muted-foreground text-base leading-relaxed">
+                Ready to discuss with experts you trust?
+                <br />
+                Start with uploading a case.
+              </p>
+            </div>
+
+            {/* Upcoming Meetings */}
+            <UpcomingMeetingCard onShowMore={handleShowMoreMeetings} />
+          </div>
+
+          {/* Right Column: Form Card */}
+          <form onSubmit={handleSubmit} className="animate-fade-in">
             <div className="home-form-card">
               {/* Name Field */}
               <div className="home-form-field">
@@ -83,30 +117,38 @@ const Home = () => {
                 />
               </div>
 
-              {/* Sex Field */}
+              {/* Sex Field - Themed dropdown */}
               <div className="home-form-field">
                 <label className="home-form-label">Sex</label>
-                <select
-                  value={sex}
-                  onChange={e => setSex(e.target.value)}
-                  className="home-form-input"
-                >
-                  <option value="">Select sex</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={sex}
+                    onChange={e => setSex(e.target.value)}
+                    className="home-form-input appearance-none pr-10 cursor-pointer"
+                  >
+                    <option value="">Select sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <svg
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </div>
 
-              {/* Cancer Type Field */}
+              {/* Cancer Type Field - Searchable dropdown */}
               <div className="home-form-field">
                 <label className="home-form-label">Cancer Type</label>
-                <input
-                  type="text"
+                <CancerTypeSelect
                   value={cancerType}
-                  onChange={e => setCancerType(e.target.value)}
-                  className="home-form-input"
-                  placeholder="e.g., Lung Cancer"
+                  onChange={setCancerType}
+                  placeholder="Search and select cancer type"
                 />
               </div>
 
@@ -131,73 +173,16 @@ const Home = () => {
               </button>
             </div>
           </form>
-
-          {/* Right Column: Illustration & Tagline */}
-          <div className="hidden lg:flex flex-col items-center justify-center animate-fade-in">
-            {/* Illustration Box */}
-            <div className="home-illustration-box">
-              <svg
-                className="w-20 h-20 text-primary"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-
-            {/* Heading */}
-            <h2 className="home-heading">
-              Organize cases effortlessly with your virtual MTB workspace.
-            </h2>
-
-            {/* Subtext */}
-            <p className="home-subtext">
-              Create, manage, and collaborate on medical cases with ease.
-            </p>
-
-            {/* Accent Underline */}
-            <div className="home-accent-bar" />
-          </div>
         </div>
       </main>
 
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
-        }
-
-        @media (max-width: 1024px) {
-          main {
-            padding-top: 4rem;
-            padding-bottom: 4rem;
-          }
-        }
-
-        @media (max-width: 768px) {
-          main {
-            padding-left: 1rem;
-            padding-right: 1rem;
-          }
-
-          .grid {
-            grid-template-columns: 1fr !important;
-            min-height: auto !important;
-          }
-
-          .hidden.lg\\:flex {
-            display: flex !important;
-            width: 100%;
-            margin-top: 2rem;
-          }
-        }
-      `}</style>
+      {/* Meetings Modal */}
+      <MeetingsModal 
+        open={meetingsModalOpen} 
+        onOpenChange={setMeetingsModalOpen} 
+        meetings={meetings}
+        loading={meetingsLoading}
+      />
     </div>
   );
 };

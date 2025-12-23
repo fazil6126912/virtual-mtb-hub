@@ -42,9 +42,7 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
     const { error } = await updateProfile({
       name: name.trim(),
       phone: phone.trim() || null,
-      // Extended fields would be saved here
-      profession,
-      hospital_name: hospitalName.trim() || null,
+      // Note: profession and hospital_name would require DB schema update
     });
 
     if (error) {
