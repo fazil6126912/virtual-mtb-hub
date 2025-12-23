@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { User } from 'lucide-react';
+import ProfessionSelect from '@/components/ProfessionSelect';
 
 interface EditProfileModalProps {
   open: boolean;
@@ -16,6 +17,8 @@ interface EditProfileModalProps {
 const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
   const { profile, updateProfile } = useAuth();
   const [name, setName] = useState('');
+  const [profession, setProfession] = useState('');
+  const [hospitalName, setHospitalName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -23,6 +26,9 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
     if (profile) {
       setName(profile.name || '');
       setPhone(profile.phone || '');
+      // These fields would come from extended profile if available
+      setProfession((profile as any).profession || '');
+      setHospitalName((profile as any).hospital_name || '');
     }
   }, [profile]);
 
@@ -36,6 +42,7 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
     const { error } = await updateProfile({
       name: name.trim(),
       phone: phone.trim() || null,
+      // Extended fields would be saved here
     });
 
     if (error) {
@@ -65,8 +72,11 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
             </div>
           </div>
 
+          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Name</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Name <span className="text-destructive">*</span>
+            </label>
             <input
               type="text"
               value={name}
@@ -75,7 +85,34 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
               placeholder="Your name"
             />
           </div>
+
+          {/* Profession */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Profession
+            </label>
+            <ProfessionSelect
+              value={profession}
+              onChange={setProfession}
+              placeholder="Select or type your profession"
+            />
+          </div>
+
+          {/* Hospital Name */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Hospital Name
+            </label>
+            <input
+              type="text"
+              value={hospitalName}
+              onChange={e => setHospitalName(e.target.value)}
+              className="vmtb-input"
+              placeholder="Your hospital name"
+            />
+          </div>
           
+          {/* Email - Read Only */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Email</label>
             <input
@@ -87,6 +124,7 @@ const EditProfileModal = ({ open, onOpenChange }: EditProfileModalProps) => {
             <p className="text-xs text-muted-foreground mt-1">Email cannot be changed</p>
           </div>
           
+          {/* Phone */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
             <input

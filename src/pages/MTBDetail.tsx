@@ -85,7 +85,7 @@ const MTBDetail = () => {
   // Get experts for this MTB
   const mtbExperts = state.experts.filter(e => mtb.experts.includes(e.id));
 
-  const handleAddExpert = (name: string, email: string, specialty: string) => {
+  const handleAddExpert = (email: string) => {
     if (sendInvitations) {
       sendInvitations(mtb.id, mtb.name, [email]);
     }

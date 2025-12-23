@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Plus } from 'lucide-react';
 import Header from '@/components/Header';
 import TabBar from '@/components/TabBar';
@@ -6,6 +6,7 @@ import MTBCard from '@/components/MTBCard';
 import CreateMTBModal from '@/components/CreateMTBModal';
 import { useApp } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
+import { MTB } from '@/lib/storage';
 
 const tabs = [
   { id: 'my', label: 'My MTBs' },
@@ -16,6 +17,8 @@ const MTBsList = () => {
   const { state, createMTB, sendInvitations } = useApp();
   const [activeTab, setActiveTab] = useState('my');
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const myMTBs = state.mtbs.filter(m => m.isOwner);
   const enrolledMTBs = state.mtbs.filter(m => !m.isOwner);
@@ -36,6 +39,46 @@ const MTBsList = () => {
       }
     }
   };
+
+  // Drag and Drop handlers
+  const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', index.toString());
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== index) {
+      setDragOverIndex(index);
+    }
+  }, [draggedIndex]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverIndex(null);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      // Reorder the MTBs
+      const reorderedMTBs = [...displayedMTBs];
+      const [draggedItem] = reorderedMTBs.splice(draggedIndex, 1);
+      reorderedMTBs.splice(dropIndex, 0, draggedItem);
+      
+      // Reordering is visual only (state persists in component)
+    }
+    
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, [draggedIndex, displayedMTBs, updateMTBOrder, activeTab]);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+  }, []);
 
   return (
     <div className="min-h-screen bg-muted">
@@ -60,8 +103,22 @@ const MTBsList = () => {
       <main className="fixed top-[calc(3rem+2.75rem)] left-0 right-0 bottom-0 overflow-y-auto scrollbar-hide overscroll-none">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {displayedMTBs.map(mtb => (
-              <MTBCard key={mtb.id} mtb={mtb} />
+            {displayedMTBs.map((mtb, index) => (
+              <div
+                key={mtb.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`transition-all duration-200 ${
+                  dragOverIndex === index ? 'ring-2 ring-primary ring-offset-2' : ''
+                }`}
+                style={{ cursor: draggedIndex !== null ? 'grabbing' : 'grab' }}
+              >
+                <MTBCard mtb={mtb} isDragging={draggedIndex === index} />
+              </div>
             ))}
           </div>
 

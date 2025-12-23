@@ -2,53 +2,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { FileText, Monitor, Users, Clipboard, MapPin, Mail, BookOpen } from 'lucide-react';
-import { useEffect, useRef } from 'react';
 
 const Landing = () => {
   const { user, loading } = useAuth();
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleWheel = (e: WheelEvent) => {
-      if (!containerRef.current) return;
-      
-      e.preventDefault();
-      
-      const sections = containerRef.current.querySelectorAll('section');
-      const currentScroll = window.scrollY;
-      
-      // Find current section
-      let currentSectionIndex = 0;
-      for (let i = 0; i < sections.length; i++) {
-        const rect = sections[i].getBoundingClientRect();
-        if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
-          currentSectionIndex = i;
-          break;
-        }
-      }
-      
-      // Determine scroll direction
-      if (e.deltaY > 0 && currentSectionIndex < sections.length - 1) {
-        // Scroll down to next section
-        sections[currentSectionIndex + 1].scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest'
-        });
-      } else if (e.deltaY < 0 && currentSectionIndex > 0) {
-        // Scroll up to previous section
-        sections[currentSectionIndex - 1].scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest'
-        });
-      }
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('wheel', handleWheel, { passive: false });
-      return () => container.removeEventListener('wheel', handleWheel);
-    }
-  }, []);
 
   if (loading) {
     return (
@@ -62,11 +18,65 @@ const Landing = () => {
     return <Navigate to="/home" replace />;
   }
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
-    <div ref={containerRef} className="overflow-hidden">
+    <div className="overflow-y-auto">
+      {/* Fixed Navigation Bar */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-8 h-8 text-[#219ebc]" />
+              <span className="text-xl font-semibold text-[#219ebc]">vMTB</span>
+            </div>
+
+            {/* Navigation Links */}
+            <div className="hidden md:flex items-center gap-6">
+              <button
+                onClick={() => scrollToSection('hero')}
+                className="text-sm font-medium text-gray-700 hover:text-[#219ebc] transition-colors"
+              >
+                Home
+              </button>
+              <button
+                onClick={() => scrollToSection('features')}
+                className="text-sm font-medium text-gray-700 hover:text-[#219ebc] transition-colors"
+              >
+                Features
+              </button>
+              <button
+                onClick={() => scrollToSection('contact')}
+                className="text-sm font-medium text-gray-700 hover:text-[#219ebc] transition-colors"
+              >
+                Contact
+              </button>
+            </div>
+
+            {/* Get Started Button */}
+            <Link
+              to="/auth"
+              className="inline-flex items-center gap-2 bg-[#219ebc] text-white font-medium py-2 px-4 rounded-full hover:bg-[#1a7d96] transition-all duration-300 text-sm"
+            >
+              Get Started
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       {/* SECTION 1: HERO SECTION */}
-      <section className="h-screen w-full bg-[#8ecae6] flex items-center justify-center px-4 md:px-8">
-        <div className="w-[95%] max-w-8xl mx-auto my-8 md:my-12 h-[80vh]">
+      <section id="hero" className="min-h-screen w-full bg-[#8ecae6] flex items-center justify-center px-4 md:px-8 pt-20">
+        <div className="w-[95%] max-w-8xl mx-auto my-8 md:my-12 h-[75vh]">
           <div className="rounded-3xl overflow-hidden h-full flex flex-row relative">
             {/* Gradient overlay spanning both columns */}
             <div className="absolute inset-0 bg-gradient-to-r from-[#219ebc] via-[#219ebc] via-[#219ebc]/80 via-[#219ebc]/60 via-[#219ebc]/40 via-[#219ebc]/20 via-[#219ebc]/10 via-[#219ebc]/5 to-[#ffeedb]/0 z-10"></div>
@@ -104,11 +114,11 @@ const Landing = () => {
       </section>
 
       {/* SECTION 2: FEATURES & SERVICES */}
-      <section className="h-screen w-full bg-[#219ebc] relative overflow-hidden flex items-center justify-center px-4 md:px-8">
+      <section id="features" className="min-h-screen w-full bg-[#219ebc] relative overflow-hidden flex items-center justify-center px-4 md:px-8 py-20">
         {/* Subtle gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-b from-[#8ecae6]/38 via-[#8ecae6]/43 to-[#8ecae6]/88 pointer-events-none"></div>
         
-        <div className="w-full max-w-6xl mx-auto my-8 md:my-12 relative z-10">
+        <div className="w-full max-w-6xl mx-auto relative z-10">
           <h2 className="text-3xl md:text-4xl font-semibold text-white text-center mb-10">
             Our Features & Services.
           </h2>
@@ -170,7 +180,7 @@ const Landing = () => {
       </section>
 
       {/* SECTION 3: FOOTER SECTION */}
-      <section className="h-screen w-full bg-[#8ecae6] flex flex-col">
+      <section id="contact" className="min-h-screen w-full bg-[#8ecae6] flex flex-col">
         {/* Empty top area - 80-85% */}
         <div className="flex-1"></div>
         

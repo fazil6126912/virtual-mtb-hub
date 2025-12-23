@@ -8,8 +8,7 @@ import {
   Video,
   UserPlus,
   ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -45,24 +44,21 @@ const MTBSidebar = ({
         'flex flex-col h-full bg-card border-r border-border transition-all duration-300 ease-in-out flex-shrink-0',
         isCollapsed ? 'w-16' : 'w-56'
       )}
+      style={{ minHeight: '100vh', height: '100%' }}
     >
-      {/* Toggle Button */}
-      <div className="flex items-center justify-end p-2 border-b border-border">
+      {/* Fixed Hamburger Toggle Button */}
+      <div className="flex items-center justify-start p-3 border-b border-border">
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
           title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {isCollapsed ? (
-            <ChevronRight className="w-4 h-4" />
-          ) : (
-            <ChevronLeft className="w-4 h-4" />
-          )}
+          <Menu className="w-5 h-5" />
         </button>
       </div>
 
       {/* Navigation Sections */}
-      <div className="flex-1 py-3">
+      <div className="flex-1 py-3 flex flex-col">
         <div className="space-y-1 px-2">
           {sections.map((section) => {
             const Icon = section.icon;
@@ -132,6 +128,9 @@ const MTBSidebar = ({
             </button>
           </div>
         )}
+
+        {/* Spacer to push back button to bottom */}
+        <div className="flex-1" />
 
         {/* Divider */}
         <div className="my-4 mx-3 border-t border-border" />
