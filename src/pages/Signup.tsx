@@ -123,20 +123,6 @@ const Signup = () => {
             />
           </div>
 
-          {/* Hospital Name - Optional */}
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Hospital Name <span className="text-muted-foreground text-xs">(Optional)</span>
-            </label>
-            <input
-              type="text"
-              value={hospitalName}
-              onChange={e => setHospitalName(e.target.value)}
-              className="vmtb-input"
-              placeholder="Enter your hospital name"
-            />
-          </div>
-
           {/* Email - Mandatory */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">
@@ -148,6 +134,20 @@ const Signup = () => {
               onChange={e => setEmail(e.target.value)}
               className="vmtb-input"
               placeholder="Enter your email"
+            />
+          </div>
+
+          {/* Hospital Name - Optional */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Hospital Name <span className="text-muted-foreground text-xs">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={hospitalName}
+              onChange={e => setHospitalName(e.target.value)}
+              className="vmtb-input"
+              placeholder="Enter your hospital name"
             />
           </div>
 
