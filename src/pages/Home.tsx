@@ -61,9 +61,9 @@ const Home = () => {
       <Header />
       
       <main className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-8 lg:py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-8 lg:gap-12 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[55%_45%] gap-8 lg:gap-12 items-end">
           {/* Left Column: Welcome + Meetings */}
-          <div className="pt-4 lg:pt-8">
+          <div className="flex flex-col pt-4 lg:pt-8">
             {/* Welcome Section */}
             <div>
               <p className="home-welcome-text">Welcome back,</p>
