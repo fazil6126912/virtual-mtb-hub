@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import ProfessionSelect from '@/components/ProfessionSelect';
 
 const emailSchema = z.string().email('Please enter a valid email');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -13,6 +14,8 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
+  const [profession, setProfession] = useState('');
+  const [hospitalName, setHospitalName] = useState('');
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
@@ -38,6 +41,10 @@ const Auth = () => {
         toast.error('Please enter your name');
         return;
       }
+      if (!profession.trim()) {
+        toast.error('Please select or enter your profession');
+        return;
+      }
       if (password !== confirmPassword) {
         toast.error('Passwords do not match');
         return;
@@ -56,7 +63,7 @@ const Auth = () => {
           navigate('/home');
         }
       } else {
-        const { error } = await signUp(email, password, name, phone);
+        const { error } = await signUp(email, password, name, profession, phone, hospitalName);
         if (error) {
           toast.error(error.message.includes('already registered') ? 'An account with this email already exists' : error.message);
         } else {
@@ -92,10 +99,22 @@ const Auth = () => {
               <input type="text" value={name} onChange={e => setName(e.target.value)} className="vmtb-input" placeholder="Enter your name" />
             </div>
           )}
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Profession</label>
+              <ProfessionSelect value={profession} onChange={setProfession} placeholder="Select or type profession" />
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Email</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="vmtb-input" placeholder="Enter your email" />
           </div>
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Hospital Name (optional)</label>
+              <input type="text" value={hospitalName} onChange={e => setHospitalName(e.target.value)} className="vmtb-input" placeholder="Enter your hospital name" />
+            </div>
+          )}
           {!isLogin && (
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Phone (optional)</label>

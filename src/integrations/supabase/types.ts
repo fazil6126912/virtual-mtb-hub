@@ -431,27 +431,33 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string
+          hospital_name: string | null
           id: string
           name: string
           phone: string | null
+          profession: string | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           email: string
+          hospital_name?: string | null
           id: string
           name: string
           phone?: string | null
+          profession?: string | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          hospital_name?: string | null
           id?: string
           name?: string
           phone?: string | null
+          profession?: string | null
           updated_at?: string
         }
         Relationships: []
