@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
+import { format, parseISO, isAfter, startOfToday } from 'date-fns';
 import CancerTypeSelect from '@/components/CancerTypeSelect';
-import UpcomingMeetingCard from '@/components/UpcomingMeetingCard';
 import MeetingsModal from '@/components/MeetingsModal';
 
 const Home = () => {
@@ -190,7 +190,6 @@ const Home = () => {
 // Inline component for meeting card content (without the outer wrapper)
 const UpcomingMeetingCardContent = ({ onShowMore }: { onShowMore: () => void }) => {
   const { meetings } = useMeetings();
-  const { format, parseISO, isAfter, startOfToday } = require('date-fns');
 
   const today = startOfToday();
   const upcomingMeetings = meetings
