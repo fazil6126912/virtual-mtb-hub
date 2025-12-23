@@ -31,7 +31,7 @@ const CaseView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { state, sendGroupMessage } = useApp();
-  const { cases, loadCaseForEditing, loading } = useSupabaseData();
+  const { loadCaseForEditing, loading } = useSupabaseData();
   const [activeTab, setActiveTab] = useState('profile');
   const [selectedReport, setSelectedReport] = useState<UploadedFile | null>(null);
   const [selectedExpert, setSelectedExpert] = useState<Expert | null>(null);
@@ -40,7 +40,7 @@ const CaseView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Load case data from database
+  // Load case data from database - always use loadCaseForEditing for full file data
   useEffect(() => {
     const loadCase = async () => {
       if (!id) {
@@ -50,15 +50,7 @@ const CaseView = () => {
 
       setIsLoading(true);
       
-      // First check if case exists in already fetched cases
-      const existingCase = cases.find(c => c.id === id);
-      if (existingCase) {
-        setCaseData(existingCase);
-        setIsLoading(false);
-        return;
-      }
-
-      // If not found, try to load with full document data
+      // Always load with full document data to get anonymized PDF pages
       const loadedCase = await loadCaseForEditing(id);
       if (loadedCase) {
         setCaseData(loadedCase);
@@ -70,7 +62,7 @@ const CaseView = () => {
     };
 
     loadCase();
-  }, [id, cases, loadCaseForEditing, navigate]);
+  }, [id, loadCaseForEditing, navigate]);
 
   if (isLoading || loading) {
     return (

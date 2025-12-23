@@ -134,17 +134,74 @@ export function useSupabaseData() {
   }, [user]);
 
   // Upload a file to storage and return signed URL (private bucket)
+  // For PDFs with anonymized pages, uploads each page separately and returns paths/URLs
   const uploadFileToStorage = async (
     file: UploadedFile,
     caseId: string
-  ): Promise<{ storagePath: string; signedUrl: string } | null> => {
+  ): Promise<{ storagePath: string; signedUrl: string; pageUrls?: string[] } | null> => {
     if (!user) {
       console.error('[uploadFileToStorage] No user found');
       return null;
     }
 
     try {
-      // Convert dataURL to blob - use anonymized version if available
+      const isPdf = file.type === 'application/pdf';
+      const hasAnonymizedPages = isPdf && file.anonymizedPages && file.anonymizedPages.length > 0;
+
+      // For PDFs with anonymized pages, upload each page as a separate image
+      if (hasAnonymizedPages) {
+        console.log('[uploadFileToStorage] Uploading anonymized PDF pages for:', file.name);
+        const pageUrls: string[] = [];
+        
+        for (let i = 0; i < file.anonymizedPages!.length; i++) {
+          const pageDataURL = file.anonymizedPages![i];
+          
+          // Skip blob: URLs
+          if (pageDataURL.startsWith('blob:')) {
+            console.warn('[uploadFileToStorage] Skipping blob URL for page:', i);
+            continue;
+          }
+
+          const response = await fetch(pageDataURL);
+          const blob = await response.blob();
+          
+          // Store each page with a page index suffix
+          const storagePath = `${user.id}/${caseId}/${file.id}_page_${i}.png`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('case-documents')
+            .upload(storagePath, blob, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+
+          if (uploadError) {
+            console.error(`[uploadFileToStorage] Error uploading page ${i}:`, uploadError);
+            continue;
+          }
+
+          // Get signed URL for this page
+          const { data: signedData } = await supabase.storage
+            .from('case-documents')
+            .createSignedUrl(storagePath, 3600);
+
+          if (signedData?.signedUrl) {
+            pageUrls.push(signedData.signedUrl);
+          }
+        }
+
+        console.log('[uploadFileToStorage] Uploaded', pageUrls.length, 'pages for PDF');
+        
+        // Return the first page URL as the main URL for backwards compatibility
+        const mainStoragePath = `${user.id}/${caseId}/${file.id}_page_0.png`;
+        return {
+          storagePath: mainStoragePath,
+          signedUrl: pageUrls[0] || '',
+          pageUrls,
+        };
+      }
+
+      // For regular images or non-anonymized PDFs, use anonymized version if available
       const dataURL = file.anonymizedDataURL || file.dataURL;
       if (!dataURL) {
         console.error('[uploadFileToStorage] No dataURL found for file:', file.name);
@@ -628,15 +685,54 @@ export function useSupabaseData() {
       const files: UploadedFile[] = await Promise.all(
         (documents || []).map(async (doc: DbDocument) => {
           let dataURL = '';
+          let anonymizedPages: string[] | undefined;
+          
+          const isPdf = doc.file_type === 'pdf';
           
           if (doc.storage_path) {
-            // Get signed URL for private bucket
-            const { data: signedData } = await supabase.storage
-              .from('case-documents')
-              .createSignedUrl(doc.storage_path, 3600); // 1 hour expiry
+            // For PDFs with multiple pages, load all anonymized page images
+            if (isPdf && doc.page_count > 0) {
+              // Check if this is a multi-page PDF by looking for page_0 pattern
+              const basePath = doc.storage_path.replace(/_page_\d+\.png$/, '');
+              const hasPagePattern = doc.storage_path.includes('_page_');
+              
+              if (hasPagePattern) {
+                // Load all pages
+                anonymizedPages = [];
+                for (let i = 0; i < doc.page_count; i++) {
+                  const pagePath = `${basePath}_page_${i}.png`;
+                  const { data: signedData } = await supabase.storage
+                    .from('case-documents')
+                    .createSignedUrl(pagePath, 3600);
+                  
+                  if (signedData?.signedUrl) {
+                    anonymizedPages.push(signedData.signedUrl);
+                  }
+                }
+                
+                // Use first page as main dataURL for backwards compatibility
+                if (anonymizedPages.length > 0) {
+                  dataURL = anonymizedPages[0];
+                }
+              } else {
+                // Single file (original PDF not anonymized or old format)
+                const { data: signedData } = await supabase.storage
+                  .from('case-documents')
+                  .createSignedUrl(doc.storage_path, 3600);
 
-            if (signedData?.signedUrl) {
-              dataURL = signedData.signedUrl;
+                if (signedData?.signedUrl) {
+                  dataURL = signedData.signedUrl;
+                }
+              }
+            } else {
+              // Regular image - get signed URL
+              const { data: signedData } = await supabase.storage
+                .from('case-documents')
+                .createSignedUrl(doc.storage_path, 3600);
+
+              if (signedData?.signedUrl) {
+                dataURL = signedData.signedUrl;
+              }
             }
           }
 
@@ -644,8 +740,9 @@ export function useSupabaseData() {
             id: doc.id,
             name: doc.file_name,
             size: 0,
-            type: doc.file_type === 'pdf' ? 'application/pdf' : 'image/png',
+            type: isPdf ? 'application/pdf' : 'image/png',
             dataURL,
+            anonymizedPages,
             fileCategory: doc.file_category || '',
             extractedData: doc.digitized_text || undefined,
             anonymizedVisited: doc.is_anonymized,
