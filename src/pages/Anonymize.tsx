@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check, Eraser, CheckCircle, Undo2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, Square, Circle, Pencil, Check, Eraser, CheckCircle, Undo2, Loader2 } from 'lucide-react';
 import Header from '@/components/Header';
 import ConfirmModal from '@/components/ConfirmModal';
 import { useApp } from '@/contexts/AppContext';
@@ -69,6 +69,7 @@ const Anonymize = () => {
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [currentPdfPageIndex, setCurrentPdfPageIndex] = useState(0);
   const [totalPdfPages, setTotalPdfPages] = useState(0);
+  const [isLoadingPDF, setIsLoadingPDF] = useState(false);
 
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
   const [triggerShake, setTriggerShake] = useState(false);
@@ -101,18 +102,24 @@ const Anonymize = () => {
 
   // Set up PDF.js worker with proper path
   useEffect(() => {
-    GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.js',
-      import.meta.url
-    ).toString();
+    // Use CDN for the PDF.js worker for better compatibility
+    GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
   }, []);
 
   // Load PDF pages with ArrayBuffer
   const loadPDFPages = useCallback(async (file: typeof currentFile) => {
     if (!file || file.type !== 'application/pdf') {
       setIsPDF(false);
+      setPdfPages([]);
+      setIsLoadingPDF(false);
       return;
     }
+
+    // Reset state before loading
+    setImageLoaded(false);
+    setPdfPages([]);
+    setCurrentPdfPageIndex(0);
+    setIsLoadingPDF(true);
 
     try {
       // Convert data URL to ArrayBuffer
@@ -124,7 +131,8 @@ const Anonymize = () => {
       setTotalPdfPages(pdf.numPages);
       
       const pages: string[] = [];
-      for (let i = 1; i <= Math.min(pdf.numPages, 10); i++) {
+      // Load all pages (up to 50 for reasonable limit)
+      for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) {
         try {
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 2 });
@@ -148,21 +156,25 @@ const Anonymize = () => {
       if (pages.length === 0) {
         toast.error('Failed to render any PDF pages');
         setIsPDF(false);
+        setIsLoadingPDF(false);
         return;
       }
       
       setPdfPages(pages);
       setCurrentPdfPageIndex(0);
       setIsPDF(true);
+      setImageLoaded(true);
+      setIsLoadingPDF(false);
     } catch (error) {
       console.error('Error loading PDF:', error);
       toast.error('Failed to load PDF file');
       setIsPDF(false);
+      setIsLoadingPDF(false);
     }
   }, []);
 
   // Get the image to display (anonymized if available, otherwise original)
-  const getDisplayImage = useCallback(() => {
+  const getDisplayImage = useCallback((): string | undefined => {
     if (isPDF && pdfPages.length > 0) {
       // Check if we have anonymized pages for this PDF
       if (currentFile?.anonymizedPages && currentFile.anonymizedPages.length > currentPdfPageIndex) {
@@ -171,20 +183,25 @@ const Anonymize = () => {
       return pdfPages[currentPdfPageIndex];
     }
     return currentFile?.anonymizedDataURL || currentFile?.dataURL;
-  }, [currentFile, isPDF, pdfPages, currentPdfPageIndex]);
+  }, [currentFile?.anonymizedDataURL, currentFile?.dataURL, currentFile?.anonymizedPages, isPDF, pdfPages, currentPdfPageIndex]);
 
   // Load and draw image on canvas (or load PDF pages)
   useEffect(() => {
     if (!currentFile || !canvasRef.current) return;
 
+    // Reset shapes when file changes
+    setShapes([]);
+
     // Check if this is a PDF
     if (currentFile.type === 'application/pdf') {
       loadPDFPages(currentFile);
-      setShapes([]);
       return;
     }
 
     // Handle regular images
+    setIsPDF(false);
+    setPdfPages([]);
+    
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -200,12 +217,12 @@ const Anonymize = () => {
       ctx.drawImage(img, 0, 0);
       setImageLoaded(true);
     };
-    img.src = getDisplayImage() || '';
-
-    // Reset shapes when file changes
-    setShapes([]);
-    setIsPDF(false);
-  }, [currentFile, loadPDFPages]);
+    img.onerror = () => {
+      console.error('Failed to load image');
+      toast.error('Failed to load image');
+    };
+    img.src = currentFile.anonymizedDataURL || currentFile.dataURL;
+  }, [currentFile?.id, loadPDFPages]);
 
   // Redraw canvas with shapes
   const redrawCanvas = useCallback(() => {
@@ -334,22 +351,39 @@ const Anonymize = () => {
     redrawCanvas();
   }, [redrawCanvas]);
 
-  // Set canvas dimensions when PDF pages are loaded
+  // Set canvas dimensions when PDF pages are loaded and draw the PDF page
   useEffect(() => {
-    if (isPDF && pdfPages.length > 0 && canvasRef.current) {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        if (canvas) {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          setImageDimensions({ width: img.width, height: img.height });
-          setImageLoaded(true);
-        }
-      };
-      img.src = pdfPages[currentPdfPageIndex];
-    }
-  }, [isPDF, pdfPages, currentPdfPageIndex]);
+    if (!isPDF || pdfPages.length === 0 || !canvasRef.current) return;
+
+    const displaySrc = getDisplayImage();
+    if (!displaySrc) return;
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      
+      // Set canvas size to match the PDF page image
+      canvas.width = img.width;
+      canvas.height = img.height;
+      setImageDimensions({ width: img.width, height: img.height });
+      
+      // Draw the PDF page
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      setImageLoaded(true);
+      
+      // Reset shapes when changing PDF pages
+      setShapes([]);
+    };
+    img.onerror = () => {
+      console.error('Failed to load PDF page image');
+    };
+    img.src = displaySrc;
+  }, [isPDF, pdfPages, currentPdfPageIndex, getDisplayImage]);
 
   const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -867,6 +901,14 @@ const Anonymize = () => {
         {/* Right: Canvas Area with Zoom */}
         <div className="flex-1 p-3 overflow-hidden flex flex-col" ref={containerRef}>
           <div className="flex-1 rounded-lg overflow-hidden bg-background relative border border-border">
+            {/* PDF Loading Overlay */}
+            {isLoadingPDF && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80">
+                <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                <p className="text-sm text-muted-foreground">Loading PDF...</p>
+              </div>
+            )}
+            
             {isImage ? (
               <TransformWrapper
                 initialScale={1}
