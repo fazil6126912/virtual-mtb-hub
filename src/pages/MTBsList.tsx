@@ -73,7 +73,7 @@ const MTBsList = () => {
     
     setDraggedIndex(null);
     setDragOverIndex(null);
-  }, [draggedIndex, displayedMTBs, updateMTBOrder, activeTab]);
+  }, [draggedIndex, displayedMTBs, activeTab]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedIndex(null);
