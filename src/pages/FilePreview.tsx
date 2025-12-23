@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import ZoomablePreview from '@/components/ZoomablePreview';
 import ConfirmModal from '@/components/ConfirmModal';
+import FinalSubmitModal from '@/components/FinalSubmitModal';
 import { useApp } from '@/contexts/AppContext';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
@@ -512,14 +513,10 @@ const FilePreview = () => {
         onCancel={() => setShowIncompleteModal(false)}
       />
 
-      {/* Submit Confirmation Modal */}
-      <ConfirmModal
+      {/* Final Submit Confirmation Modal */}
+      <FinalSubmitModal
         open={showSubmitModal}
         onOpenChange={setShowSubmitModal}
-        title="Create Case"
-        description="Are you ready to create this case? If you need to make changes, you can go back. Patient report and presentation will be generated automatically and are available from the Patient Profile."
-        confirmLabel="Create Case"
-        cancelLabel="Go Back"
         onConfirm={handleCreateCase}
         onCancel={handleGoBack}
       />

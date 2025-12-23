@@ -29,6 +29,7 @@ const MTBDetail = () => {
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { createMeeting } = useMeetings();
 
   // Defensive checks
@@ -436,12 +437,12 @@ const MTBDetail = () => {
 
   try {
     return (
-      <div className="min-h-screen bg-muted flex flex-col">
+      <div className="h-screen bg-muted flex flex-col overflow-hidden">
         <Header />
         
         {/* Main layout with sidebar */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar */}
+          {/* Sidebar - Fixed position */}
           <MTBSidebar
             activeSection={activeSection}
             onSectionChange={(section) => {
@@ -452,10 +453,11 @@ const MTBDetail = () => {
             onAddCase={() => setShowAddCase(true)}
             onScheduleMeet={() => setShowScheduleMeet(true)}
             onAddExpert={() => setShowAddExpert(true)}
+            onCollapsedChange={setIsSidebarCollapsed}
           />
 
-          {/* Main Content */}
-          <main className="flex-1 overflow-hidden">
+          {/* Main Content - with left margin to account for fixed sidebar */}
+          <main className={`flex-1 overflow-y-auto transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-56'}`}>
             {renderContent()}
           </main>
         </div>

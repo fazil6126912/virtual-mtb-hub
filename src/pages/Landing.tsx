@@ -37,7 +37,7 @@ const Landing = () => {
               <span className="text-xl font-semibold text-[#219ebc]">vMTB</span>
             </div>
 
-            {/* Navigation Links */}
+            {/* Right side: Navigation Links + Get Started */}
             <div className="hidden md:flex items-center gap-6">
               <button
                 onClick={() => scrollToSection('hero')}
@@ -57,19 +57,17 @@ const Landing = () => {
               >
                 Contact
               </button>
+              <Link
+                to="/auth"
+                className="inline-flex items-center gap-2 bg-[#219ebc] text-white font-medium py-2 px-4 rounded-full hover:bg-[#1a7d96] transition-all duration-300 text-sm"
+              >
+                Get Started
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+              </Link>
             </div>
-
-            {/* Get Started Button */}
-            <Link
-              to="/auth"
-              className="inline-flex items-center gap-2 bg-[#219ebc] text-white font-medium py-2 px-4 rounded-full hover:bg-[#1a7d96] transition-all duration-300 text-sm"
-            >
-              Get Started
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 12h14" />
-                <path d="m12 5 7 7-7 7" />
-              </svg>
-            </Link>
           </div>
         </div>
       </nav>
