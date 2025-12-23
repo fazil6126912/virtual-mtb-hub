@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
 import { Upload, X } from 'lucide-react';
+import ProfessionSelect from '@/components/ProfessionSelect';
 
 const Signup = () => {
   const [name, setName] = useState('');
+  const [profession, setProfession] = useState('');
+  const [hospitalName, setHospitalName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -48,8 +51,9 @@ const Signup = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !email || !phone || !password || !confirmPassword) {
-      toast.error('Please fill in all fields');
+    // Mandatory fields
+    if (!name || !profession || !email || !password || !confirmPassword) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -93,8 +97,11 @@ const Signup = () => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="vmtb-card p-8 space-y-5">
+          {/* Name - Mandatory */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Name</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Name <span className="text-destructive">*</span>
+            </label>
             <input
               type="text"
               value={name}
@@ -104,8 +111,37 @@ const Signup = () => {
             />
           </div>
 
+          {/* Profession - Mandatory */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Email</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Profession <span className="text-destructive">*</span>
+            </label>
+            <ProfessionSelect
+              value={profession}
+              onChange={setProfession}
+              placeholder="Select or type your profession"
+            />
+          </div>
+
+          {/* Hospital Name - Optional */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Hospital Name <span className="text-muted-foreground text-xs">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              value={hospitalName}
+              onChange={e => setHospitalName(e.target.value)}
+              className="vmtb-input"
+              placeholder="Enter your hospital name"
+            />
+          </div>
+
+          {/* Email - Mandatory */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Email <span className="text-destructive">*</span>
+            </label>
             <input
               type="email"
               value={email}
@@ -115,8 +151,11 @@ const Signup = () => {
             />
           </div>
 
+          {/* Phone - Optional */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Phone</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Phone Number <span className="text-muted-foreground text-xs">(Optional)</span>
+            </label>
             <input
               type="tel"
               value={phone}
@@ -126,8 +165,11 @@ const Signup = () => {
             />
           </div>
 
+          {/* Password - Mandatory */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Password</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Password <span className="text-destructive">*</span>
+            </label>
             <input
               type="password"
               value={password}
@@ -137,8 +179,11 @@ const Signup = () => {
             />
           </div>
 
+          {/* Confirm Password - Mandatory */}
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Confirm Password</label>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Confirm Password <span className="text-destructive">*</span>
+            </label>
             <input
               type="password"
               value={confirmPassword}

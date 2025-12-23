@@ -5,9 +5,10 @@ import { useApp } from '@/contexts/AppContext';
 
 interface MTBCardProps {
   mtb: MTB;
+  isDragging?: boolean;
 }
 
-const MTBCard = ({ mtb }: MTBCardProps) => {
+const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
   const navigate = useNavigate();
   const { state } = useApp();
   const [visitedNotifications, setVisitedNotifications] = useState<Set<string>>(new Set());
@@ -35,15 +36,29 @@ const MTBCard = ({ mtb }: MTBCardProps) => {
     navigate(`/cases/${caseId}`);
   };
 
+  const handleCardClick = () => {
+    navigate(`/mtbs/${mtb.id}`);
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/mtbs/${mtb.id}`);
+  };
+
   return (
     <div
-      onClick={() => navigate(`/mtbs/${mtb.id}`)}
-      className="vmtb-card vmtb-card-hover cursor-pointer overflow-hidden animate-fade-in flex flex-col h-56"
+      onClick={handleCardClick}
+      className={`vmtb-card vmtb-card-hover cursor-grab overflow-hidden animate-fade-in flex flex-col h-56 ${
+        isDragging ? 'opacity-50 ring-2 ring-primary' : ''
+      }`}
     >
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-muted to-muted/50 p-4 relative flex-shrink-0">
         <div className="pr-16">
-          <h3 className={`font-semibold text-foreground ${mtb.name.length > 40 ? 'truncate' : ''}`}>
+          <h3 
+            onClick={handleTitleClick}
+            className={`font-semibold text-foreground cursor-pointer hover:underline ${mtb.name.length > 40 ? 'truncate' : ''}`}
+          >
             {mtb.name.length > 40 ? mtb.name.substring(0, 37) + '...' : mtb.name}
           </h3>
           <p className="text-sm text-muted-foreground">{mtb.doctorName}</p>
