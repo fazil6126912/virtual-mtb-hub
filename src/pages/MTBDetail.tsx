@@ -89,7 +89,7 @@ const MTBDetail = () => {
     if (sendInvitations) {
       sendInvitations(mtb.id, mtb.name, [email]);
     }
-    console.log('Adding expert:', { name, email, specialty });
+    console.log('Adding expert:', { email });
   };
 
   const handleAddCases = (caseIds: string[]) => {
