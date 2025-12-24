@@ -219,7 +219,7 @@ const ScheduleMeetModal = ({
           </p>
         </DialogHeader>
 
-        <div className="px-6 py-4 space-y-4 overflow-y-auto hide-scrollbar flex-1">
+        <div className="px-6 py-3 space-y-3 overflow-y-auto hide-scrollbar flex-1">
           {/* Time Picker - 12-hour format with AM/PM */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Select Time</label>
