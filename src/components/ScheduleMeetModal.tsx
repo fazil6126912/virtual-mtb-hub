@@ -146,12 +146,23 @@ const ScheduleMeetModal = ({
     setIsSubmitting(true);
     try {
       // Use the first selected date or today if only weekdays are selected
-      const baseDate = selectedDates.length > 0 ? selectedDates[0] : new Date();
+      // Sort dates to ensure we get the earliest one first
+      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
+      const baseDate = sortedDates.length > 0 ? sortedDates[0] : new Date();
       const scheduleType = selectedWeekdays.length > 0 ? 'custom' : 'once';
       const time24 = get24HourTime();
       
+      // Create a new date object to avoid mutation issues
+      // Use the local date components to prevent timezone shifting
+      const scheduledDate = new Date(
+        baseDate.getFullYear(),
+        baseDate.getMonth(),
+        baseDate.getDate(),
+        12, 0, 0, 0 // Set to noon to avoid any date boundary issues
+      );
+      
       await onSchedule(
-        baseDate,
+        scheduledDate,
         time24,
         scheduleType,
         selectedWeekdays.length > 0 ? selectedWeekdays : null

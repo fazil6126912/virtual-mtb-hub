@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { Meeting, MeetingNotification, generateId } from '@/lib/storage';
 import { toast } from 'sonner';
+import { toLocalDateString } from '@/lib/meetingUtils';
 
 const MEETINGS_KEY = 'vmtb_meetings';
 const NOTIFICATIONS_KEY = 'vmtb_meeting_notifications';
@@ -101,12 +102,16 @@ export const useMeetings = () => {
     if (!user) return null;
 
     try {
+      // Use local date components to prevent timezone shifting
+      // This ensures Dec 30 stays Dec 30 regardless of timezone
+      const localDateStr = toLocalDateString(scheduledDate);
+      
       const newMeeting: Meeting = {
         id: generateId(),
         mtb_id: mtbId,
         mtb_name: mtbName,
         created_by: user.id,
-        scheduled_date: scheduledDate.toISOString().split('T')[0],
+        scheduled_date: localDateStr,
         scheduled_time: scheduledTime,
         schedule_type: scheduleType,
         repeat_days: repeatDays,

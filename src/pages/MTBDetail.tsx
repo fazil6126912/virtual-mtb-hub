@@ -9,8 +9,9 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleMeetModal from '@/components/ScheduleMeetModal';
 import { useApp } from '@/contexts/AppContext';
 import { useMeetings } from '@/hooks/useMeetings';
-import { format, parseISO, isAfter, startOfToday, differenceInMinutes } from 'date-fns';
+import { format, parseISO, isAfter, startOfToday } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { formatTime12Hour, formatMeetingDateShort, isJoinEnabled } from '@/lib/meetingUtils';
 import type { Meeting } from '@/lib/storage';
 
 /**
@@ -157,14 +158,6 @@ const MTBDetail = () => {
     }
     setCancelMeetingModalOpen(false);
     setMeetingToCancel(null);
-  };
-
-  // Check if Join button should be enabled (5 minutes before meeting)
-  const isJoinEnabled = (meeting: Meeting): boolean => {
-    const now = new Date();
-    const meetingDateTime = new Date(`${meeting.scheduled_date}T${meeting.scheduled_time}`);
-    const minutesUntilMeeting = differenceInMinutes(meetingDateTime, now);
-    return minutesUntilMeeting <= 5 && minutesUntilMeeting >= -60; // Enable 5 min before, disable 60 min after
   };
 
   const handleJoinMeeting = (meeting: Meeting) => {
@@ -485,17 +478,6 @@ const MTBDetail = () => {
             return dateA.getTime() - dateB.getTime();
           });
 
-        const formatMeetingDate = (dateStr: string) => {
-          const date = parseISO(dateStr);
-          return format(date, 'EEE, d MMM');
-        };
-
-        const formatMeetingTime = (time: string) => {
-          const [hours, minutes] = time.split(':');
-          const date = new Date();
-          date.setHours(parseInt(hours), parseInt(minutes));
-          return format(date, 'h:mm a');
-        };
 
         return (
           <div className="p-4 md:p-6 animate-fade-in h-full overflow-y-auto">
@@ -541,11 +523,11 @@ const MTBDetail = () => {
                           </div>
                           <div>
                             <p className="font-medium text-foreground">
-                              {formatMeetingDate(meeting.scheduled_date)}
+                              {formatMeetingDateShort(meeting.scheduled_date)}
                             </p>
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Clock className="w-3.5 h-3.5" />
-                              <span>{formatMeetingTime(meeting.scheduled_time)}</span>
+                              <span>{formatTime12Hour(meeting.scheduled_time)}</span>
                               {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 && (
                                 <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                                   Recurring

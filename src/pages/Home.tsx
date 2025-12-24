@@ -6,10 +6,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
-import { format, parseISO, isAfter, startOfToday } from 'date-fns';
-import { ChevronDown } from 'lucide-react';
+import { parseISO, isAfter, startOfToday, format } from 'date-fns';
+import { ChevronDown, Video } from 'lucide-react';
 import CancerTypeSelect from '@/components/CancerTypeSelect';
 import MeetingsModal from '@/components/MeetingsModal';
+import { Button } from '@/components/ui/button';
+import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled } from '@/lib/meetingUtils';
+import type { Meeting } from '@/lib/storage';
 
 const Home = () => {
   const [name, setName] = useState('');
@@ -56,6 +59,11 @@ const Home = () => {
     setMeetingsModalOpen(true);
   };
 
+  const handleJoinMeeting = (meeting: Meeting) => {
+    console.log('Joining meeting:', meeting.id);
+    window.open(`https://meet.google.com/new`, '_blank');
+  };
+
   return (
     <div className="min-h-screen bg-home-page relative">
       <Header />
@@ -81,7 +89,7 @@ const Home = () => {
             <div className="mt-[220px]">
               <p className="home-discussion-title">Upcoming Discussion</p>
               <div className="home-discussion-card">
-                <UpcomingMeetingCardContent meetings={meetings} />
+                <UpcomingMeetingCardContent meetings={meetings} onJoin={handleJoinMeeting} />
               </div>
               <button
                 type="button"
@@ -183,52 +191,54 @@ const Home = () => {
         onOpenChange={setMeetingsModalOpen} 
         meetings={meetings}
         loading={meetingsLoading}
+        onJoin={handleJoinMeeting}
       />
     </div>
   );
 };
 
 // Inline component for meeting card content (without the outer wrapper)
-const UpcomingMeetingCardContent = ({ meetings }: { meetings: any[] }) => {
+const UpcomingMeetingCardContent = ({ meetings, onJoin }: { meetings: Meeting[], onJoin: (meeting: Meeting) => void }) => {
   const today = startOfToday();
   const upcomingMeetings = meetings
-    .filter((m: any) => {
+    .filter((m) => {
       const meetingDate = parseISO(m.scheduled_date);
       return isAfter(meetingDate, today) || format(meetingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
     })
-    .sort((a: any, b: any) => {
+    .sort((a, b) => {
       const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
       const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
       return dateA.getTime() - dateB.getTime();
     });
 
   const nearestMeeting = upcomingMeetings[0];
-
-  const formatMeetingDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    return format(date, 'EEEE, MMMM d, yyyy');
-  };
-
-  const formatMeetingTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
-    return format(date, 'h:mm a');
-  };
+  const joinEnabled = nearestMeeting ? isJoinEnabled(nearestMeeting) : false;
 
   return (
     <div>
       {nearestMeeting ? (
-        <div>
-          <h4 className="font-semibold text-foreground text-base mb-2">
-            {nearestMeeting.mtb_name || 'MTB Meeting'}
-          </h4>
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-            <span>{formatMeetingDate(nearestMeeting.scheduled_date)}</span>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h4 className="font-semibold text-foreground text-base mb-2">
+              {nearestMeeting.mtb_name || 'MTB Meeting'}
+            </h4>
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <span>{formatMeetingDateDisplay(nearestMeeting.scheduled_date)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <span>{formatTime12Hour(nearestMeeting.scheduled_time)}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <span>{formatMeetingTime(nearestMeeting.scheduled_time)}</span>
-          </div>
+          <Button
+            size="sm"
+            variant={joinEnabled ? "default" : "secondary"}
+            onClick={() => onJoin(nearestMeeting)}
+            disabled={!joinEnabled}
+            className="gap-1.5 flex-shrink-0"
+          >
+            <Video className="w-4 h-4" />
+            Join
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-2 text-center">
