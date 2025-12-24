@@ -110,11 +110,40 @@ const ScheduleMeetModal = ({
     setMinuteInput(paddedValue);
   };
 
+  // Calendar generation - moved before handleWeekdayToggle since it depends on daysInMonth
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  const startDayOfWeek = getDay(monthStart);
+
   const handleWeekdayToggle = (dayIndex: number) => {
+    // Get all dates in the current month that match this weekday
+    const matchingDates = daysInMonth.filter(day => {
+      const dayOfWeek = getDay(day);
+      const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
+      return dayOfWeek === dayIndex && !isPast;
+    });
+
     setSelectedWeekdays(prev => {
-      if (prev.includes(dayIndex)) {
+      const isCurrentlySelected = prev.includes(dayIndex);
+      
+      if (isCurrentlySelected) {
+        // Deselect weekday - remove all matching dates
+        setSelectedDates(prevDates => 
+          prevDates.filter(d => !matchingDates.some(md => isSameDay(md, d)))
+        );
         return prev.filter(d => d !== dayIndex);
       } else {
+        // Select weekday - add all matching dates that aren't already selected
+        setSelectedDates(prevDates => {
+          const newDates = [...prevDates];
+          matchingDates.forEach(md => {
+            if (!newDates.some(d => isSameDay(d, md))) {
+              newDates.push(md);
+            }
+          });
+          return newDates;
+        });
         return [...prev, dayIndex];
       }
     });
@@ -245,12 +274,6 @@ const ScheduleMeetModal = ({
 
   const isValid = (selectedDates.length > 0 || selectedWeekdays.length > 0) && isTimeValid;
 
-  // Calendar generation
-  const monthStart = startOfMonth(currentMonth);
-  const monthEnd = endOfMonth(currentMonth);
-  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  const startDayOfWeek = getDay(monthStart);
-
   // Create empty cells for days before month starts
   const emptyCells = Array(startDayOfWeek).fill(null);
 
@@ -285,9 +308,9 @@ const ScheduleMeetModal = ({
             variant="outline"
             onClick={handleInstantMeeting}
             disabled={isSubmitting}
-            className="w-full gap-2 border-primary/30 hover:bg-primary/5"
+            className="w-full gap-2 border-primary/30 bg-primary/5 hover:bg-primary hover:text-primary-foreground text-primary transition-colors"
           >
-            <Zap className="w-4 h-4 text-primary" />
+            <Zap className="w-4 h-4" />
             Start Instant Meeting
           </Button>
 
@@ -314,16 +337,31 @@ const ScheduleMeetModal = ({
               
               <span className="text-2xl font-light text-foreground">:</span>
               
-              {/* Minute - Input with validation */}
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={minuteInput}
-                onChange={(e) => handleMinuteInputChange(e.target.value)}
-                onBlur={handleMinuteBlur}
-                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-center w-20 h-auto"
-                maxLength={2}
-              />
+              {/* Minute - Combined dropdown + typing input */}
+              <div className="relative">
+                <select
+                  value={selectedMinute}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setSelectedMinute(val);
+                    setMinuteInput(val.toString().padStart(2, '0'));
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                >
+                  {Array.from({ length: 60 }, (_, i) => i).map(min => (
+                    <option key={min} value={min}>{min.toString().padStart(2, '0')}</option>
+                  ))}
+                </select>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={minuteInput}
+                  onChange={(e) => handleMinuteInputChange(e.target.value)}
+                  onBlur={handleMinuteBlur}
+                  className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-center w-20 h-auto"
+                  maxLength={2}
+                />
+              </div>
 
               {/* AM/PM Toggle */}
               <div className="flex border-2 border-border rounded-xl overflow-hidden">

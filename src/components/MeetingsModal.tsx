@@ -24,7 +24,16 @@ const MeetingsModal = ({
 }: MeetingsModalProps) => {
   const formatRepeatDays = (days: number[] | null) => {
     if (!days || days.length === 0) return null;
-    return days.map(d => dayNames[d]).join(', ');
+    const sortedDays = [...days].sort((a, b) => a - b);
+    if (sortedDays.length === 1) {
+      return `${dayNames[sortedDays[0]]}s`;
+    }
+    // Format as "Fridays & Saturdays" for multiple days
+    const dayStrings = sortedDays.map(d => `${dayNames[d]}s`);
+    if (dayStrings.length === 2) {
+      return dayStrings.join(' & ');
+    }
+    return dayStrings.slice(0, -1).join(', ') + ' & ' + dayStrings[dayStrings.length - 1];
   };
 
   // Get sorted upcoming meetings
@@ -85,7 +94,7 @@ const MeetingsModal = ({
                         {meeting.schedule_type === 'custom' && meeting.repeat_days && (
                           <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
                             <RefreshCw className="w-3.5 h-3.5 text-primary" />
-                            <span>Repeats: {formatRepeatDays(meeting.repeat_days)}</span>
+                            <span>Recurring on {formatRepeatDays(meeting.repeat_days)}</span>
                           </div>
                         )}
                       </div>

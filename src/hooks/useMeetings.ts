@@ -235,48 +235,14 @@ export const useMeetings = () => {
     }
   }, [user]);
 
-  // Join a meeting - reuses existing meeting link, doesn't create duplicates
+  // Join a meeting - always creates a new meeting link (per user requirement)
   const joinMeeting = useCallback((meeting: Meeting): string | null => {
     if (!user) return null;
 
     try {
-      const allMeetings = loadMeetings();
-      const meetingIndex = allMeetings.findIndex(m => m.id === meeting.id);
+      // Always generate a fresh meeting link
+      const meetingLink = `https://meet.google.com/new?mid=${meeting.id}&t=${Date.now()}`;
       
-      if (meetingIndex === -1) {
-        toast.error('Meeting not found');
-        return null;
-      }
-      
-      const existingMeeting = allMeetings[meetingIndex];
-      
-      // If meeting already has a link, reuse it
-      if (existingMeeting.meeting_link) {
-        // Update status to in_progress if not already
-        if (existingMeeting.status !== 'in_progress') {
-          allMeetings[meetingIndex] = {
-            ...existingMeeting,
-            status: 'in_progress',
-            started_at: existingMeeting.started_at || new Date().toISOString(),
-          };
-          saveMeetings(allMeetings);
-        }
-        
-        window.open(existingMeeting.meeting_link, '_blank');
-        return existingMeeting.meeting_link;
-      }
-      
-      // Generate new meeting link
-      const meetingLink = `https://meet.google.com/new?mid=${meeting.id}`;
-      
-      allMeetings[meetingIndex] = {
-        ...existingMeeting,
-        meeting_link: meetingLink,
-        status: 'in_progress',
-        started_at: new Date().toISOString(),
-      };
-      
-      saveMeetings(allMeetings);
       window.open(meetingLink, '_blank');
       
       return meetingLink;
