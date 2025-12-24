@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
-import { parseISO, isAfter, startOfToday, format } from 'date-fns';
+import { toast } from 'sonner';
+import { parseISO, format } from 'date-fns';
 import { ChevronDown, Video } from 'lucide-react';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import CancerTypeSelect from '@/components/CancerTypeSelect';
 import MeetingsModal from '@/components/MeetingsModal';
 import { Button } from '@/components/ui/button';
-import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled } from '@/lib/meetingUtils';
+import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled, getUpcomingMeetingsSorted } from '@/lib/meetingUtils';
+import type { Meeting } from '@/lib/storage';
 import type { Meeting } from '@/lib/storage';
 
 const Home = () => {
@@ -26,7 +28,7 @@ const Home = () => {
   const { setCurrentPatient } = useApp();
   const { profile } = useAuth();
   const { checkCaseNameExists } = useSupabaseData();
-  const { meetings, loading: meetingsLoading } = useMeetings();
+  const { meetings, loading: meetingsLoading, joinMeeting } = useMeetings();
   const navigate = useNavigate();
 
   // Extract doctor name from profile
@@ -60,8 +62,7 @@ const Home = () => {
   };
 
   const handleJoinMeeting = (meeting: Meeting) => {
-    console.log('Joining meeting:', meeting.id);
-    window.open(`https://meet.google.com/new`, '_blank');
+    joinMeeting(meeting);
   };
 
   return (
@@ -199,18 +200,8 @@ const Home = () => {
 
 // Inline component for meeting card content (without the outer wrapper)
 const UpcomingMeetingCardContent = ({ meetings, onJoin }: { meetings: Meeting[], onJoin: (meeting: Meeting) => void }) => {
-  const today = startOfToday();
-  const upcomingMeetings = meetings
-    .filter((m) => {
-      const meetingDate = parseISO(m.scheduled_date);
-      return isAfter(meetingDate, today) || format(meetingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
-    })
-    .sort((a, b) => {
-      const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
-      const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
-      return dateA.getTime() - dateB.getTime();
-    });
-
+  // Use the utility function for consistent sorting
+  const upcomingMeetings = getUpcomingMeetingsSorted(meetings);
   const nearestMeeting = upcomingMeetings[0];
   const joinEnabled = nearestMeeting ? isJoinEnabled(nearestMeeting) : false;
 

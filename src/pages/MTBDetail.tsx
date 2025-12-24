@@ -9,7 +9,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleMeetModal from '@/components/ScheduleMeetModal';
 import { useApp } from '@/contexts/AppContext';
 import { useMeetings } from '@/hooks/useMeetings';
-import { format, parseISO, isAfter, startOfToday } from 'date-fns';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { formatTime12Hour, formatMeetingDateShort, isJoinEnabled } from '@/lib/meetingUtils';
 import type { Meeting } from '@/lib/storage';
@@ -43,7 +43,7 @@ const MTBDetail = () => {
   const [cancelMeetingModalOpen, setCancelMeetingModalOpen] = useState(false);
   
   // All hooks must be called before any conditional returns
-  const { createMeeting, deleteMeeting, getMeetingsForMTB } = useMeetings();
+  const { createMeeting, deleteMeeting, joinMeeting, getMeetingsForMTB } = useMeetings();
   
   // Update active section when URL changes
   useEffect(() => {
@@ -161,9 +161,8 @@ const MTBDetail = () => {
   };
 
   const handleJoinMeeting = (meeting: Meeting) => {
-    // For now, just log - would integrate with video provider
-    console.log('Joining meeting:', meeting.id);
-    window.open(`https://meet.google.com/new`, '_blank'); // Placeholder - would use actual meeting link
+    // Use joinMeeting to reuse existing meeting link
+    joinMeeting(meeting);
   };
 
   // Filter content based on search
@@ -466,24 +465,13 @@ const MTBDetail = () => {
 
       case 'meetings':
         const mtbMeetings = getMeetingsForMTB(mtb.id);
-        const today = startOfToday();
-        const upcomingMeetings = mtbMeetings
-          .filter(m => {
-            const meetingDate = parseISO(m.scheduled_date);
-            return isAfter(meetingDate, today) || format(meetingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
-          })
-          .sort((a, b) => {
-            const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
-            const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
-            return dateA.getTime() - dateB.getTime();
-          });
-
+        // Meetings are already sorted from getMeetingsForMTB
 
         return (
-          <div className="p-4 md:p-6 animate-fade-in h-full overflow-y-auto">
-            <div className="vmtb-card p-6">
+          <div className="p-4 md:p-6 animate-fade-in h-full flex flex-col overflow-hidden">
+            <div className="vmtb-card p-6 flex flex-col h-full overflow-hidden">
               {/* Header with MTB name */}
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-6 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center border-2 border-border flex-shrink-0">
                     {mtb.dpImage ? (
@@ -501,15 +489,15 @@ const MTBDetail = () => {
                 </div>
               </div>
 
-              {upcomingMeetings.length === 0 ? (
-                <div className="py-12 text-center text-muted-foreground">
+              {mtbMeetings.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground flex-1">
                   <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
                   <p>No upcoming meetings scheduled for this MTB.</p>
                   {isOwner && <p className="text-sm mt-2">Use "Schedule a Meet" in the sidebar to schedule one.</p>}
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {upcomingMeetings.map(meeting => {
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+                  {mtbMeetings.map(meeting => {
                     const joinEnabled = isJoinEnabled(meeting);
                     
                     return (
@@ -533,6 +521,11 @@ const MTBDetail = () => {
                                   Recurring
                                 </span>
                               )}
+                              {meeting.status === 'in_progress' && (
+                                <span className="ml-2 text-xs bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full">
+                                  In Progress
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -547,7 +540,7 @@ const MTBDetail = () => {
                             className="gap-1.5"
                           >
                             <Video className="w-4 h-4" />
-                            Join
+                            {meeting.status === 'in_progress' ? 'Rejoin' : 'Join'}
                           </Button>
                           <Button
                             size="sm"
@@ -625,8 +618,8 @@ const MTBDetail = () => {
           onOpenChange={setShowScheduleMeet}
           mtbId={mtb.id}
           mtbName={mtb.name}
-          onSchedule={async (scheduledDate, scheduledTime, scheduleType, repeatDays) => {
-            await createMeeting(mtb.id, mtb.name, scheduledDate, scheduledTime, scheduleType, repeatDays);
+          onSchedule={async (scheduledDate, scheduledTime, scheduleType, repeatDays, explicitDates) => {
+            await createMeeting(mtb.id, mtb.name, scheduledDate, scheduledTime, scheduleType, repeatDays, explicitDates);
           }}
         />
 

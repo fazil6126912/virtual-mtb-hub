@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useApp } from '@/contexts/AppContext';
 import { Meeting, MeetingNotification, generateId } from '@/lib/storage';
 import { toast } from 'sonner';
-import { toLocalDateString } from '@/lib/meetingUtils';
+import { toLocalDateString, getUpcomingMeetingsSorted } from '@/lib/meetingUtils';
 
 const MEETINGS_KEY = 'vmtb_meetings';
 const NOTIFICATIONS_KEY = 'vmtb_meeting_notifications';
@@ -63,9 +63,15 @@ export const useMeetings = () => {
       const userMtbIds = getUserMtbIds();
       
       // Filter meetings to only include those from MTBs the user is part of
-      const userMeetings = allMeetings.filter(m => userMtbIds.includes(m.mtb_id));
+      // and exclude ended meetings
+      const userMeetings = allMeetings.filter(m => 
+        userMtbIds.includes(m.mtb_id) && m.status !== 'ended'
+      );
       
-      setMeetings(userMeetings);
+      // Sort chronologically
+      const sortedMeetings = getUpcomingMeetingsSorted(userMeetings);
+      
+      setMeetings(sortedMeetings);
     } finally {
       setLoading(false);
     }
@@ -96,38 +102,111 @@ export const useMeetings = () => {
     mtbName: string,
     scheduledDate: Date,
     scheduledTime: string,
-    scheduleType: 'once' | 'custom',
-    repeatDays: number[] | null
+    scheduleType: 'once' | 'custom' | 'instant',
+    repeatDays: number[] | null,
+    explicitDates?: Date[] // Additional explicit dates for when both recurrence and dates are selected
   ) => {
     if (!user) return null;
 
     try {
+      const allMeetings = loadMeetings();
+      const createdMeetings: Meeting[] = [];
+      
       // Use local date components to prevent timezone shifting
-      // This ensures Dec 30 stays Dec 30 regardless of timezone
       const localDateStr = toLocalDateString(scheduledDate);
       
-      const newMeeting: Meeting = {
-        id: generateId(),
-        mtb_id: mtbId,
-        mtb_name: mtbName,
-        created_by: user.id,
-        scheduled_date: localDateStr,
-        scheduled_time: scheduledTime,
-        schedule_type: scheduleType,
-        repeat_days: repeatDays,
-        created_at: new Date().toISOString(),
-      };
-
-      // Save meeting
-      const allMeetings = loadMeetings();
-      allMeetings.push(newMeeting);
+      // Handle instant meeting
+      if (scheduleType === 'instant') {
+        const meetingLink = `https://meet.google.com/new?instant=${generateId()}`;
+        const newMeeting: Meeting = {
+          id: generateId(),
+          mtb_id: mtbId,
+          mtb_name: mtbName,
+          created_by: user.id,
+          scheduled_date: localDateStr,
+          scheduled_time: scheduledTime,
+          schedule_type: 'instant',
+          repeat_days: null,
+          created_at: new Date().toISOString(),
+          status: 'in_progress',
+          started_at: new Date().toISOString(),
+          meeting_link: meetingLink,
+        };
+        
+        allMeetings.push(newMeeting);
+        createdMeetings.push(newMeeting);
+        
+        // Open the meeting immediately
+        window.open(meetingLink, '_blank');
+        toast.success('Instant meeting started');
+      } else if (scheduleType === 'custom' && repeatDays && repeatDays.length > 0) {
+        // Create recurring meeting entry
+        const recurringMeeting: Meeting = {
+          id: generateId(),
+          mtb_id: mtbId,
+          mtb_name: mtbName,
+          created_by: user.id,
+          scheduled_date: localDateStr,
+          scheduled_time: scheduledTime,
+          schedule_type: 'custom',
+          repeat_days: repeatDays,
+          created_at: new Date().toISOString(),
+          status: 'scheduled',
+          is_recurring_instance: true,
+        };
+        
+        allMeetings.push(recurringMeeting);
+        createdMeetings.push(recurringMeeting);
+        
+        // If there are also explicit dates, create separate one-time meetings for them
+        if (explicitDates && explicitDates.length > 0) {
+          for (const date of explicitDates) {
+            const dateStr = toLocalDateString(date);
+            const explicitMeeting: Meeting = {
+              id: generateId(),
+              mtb_id: mtbId,
+              mtb_name: mtbName,
+              created_by: user.id,
+              scheduled_date: dateStr,
+              scheduled_time: scheduledTime,
+              schedule_type: 'once',
+              repeat_days: null,
+              created_at: new Date().toISOString(),
+              status: 'scheduled',
+            };
+            
+            allMeetings.push(explicitMeeting);
+            createdMeetings.push(explicitMeeting);
+          }
+        }
+        
+        toast.success('Meeting(s) scheduled successfully');
+      } else {
+        // One-time meeting
+        const newMeeting: Meeting = {
+          id: generateId(),
+          mtb_id: mtbId,
+          mtb_name: mtbName,
+          created_by: user.id,
+          scheduled_date: localDateStr,
+          scheduled_time: scheduledTime,
+          schedule_type: 'once',
+          repeat_days: null,
+          created_at: new Date().toISOString(),
+          status: 'scheduled',
+        };
+        
+        allMeetings.push(newMeeting);
+        createdMeetings.push(newMeeting);
+        toast.success('Meeting scheduled successfully');
+      }
+      
       saveMeetings(allMeetings);
       
       // Update local state immediately
-      setMeetings(prev => [...prev, newMeeting]);
+      setMeetings(prev => getUpcomingMeetingsSorted([...prev, ...createdMeetings]));
       
-      toast.success('Meeting scheduled successfully');
-      return newMeeting;
+      return createdMeetings[0];
     } catch (error) {
       console.error('Error creating meeting:', error);
       toast.error('Failed to schedule meeting');
@@ -156,29 +235,98 @@ export const useMeetings = () => {
     }
   }, [user]);
 
-  // Get meetings for a specific MTB - reads fresh from localStorage
+  // Join a meeting - reuses existing meeting link, doesn't create duplicates
+  const joinMeeting = useCallback((meeting: Meeting): string | null => {
+    if (!user) return null;
+
+    try {
+      const allMeetings = loadMeetings();
+      const meetingIndex = allMeetings.findIndex(m => m.id === meeting.id);
+      
+      if (meetingIndex === -1) {
+        toast.error('Meeting not found');
+        return null;
+      }
+      
+      const existingMeeting = allMeetings[meetingIndex];
+      
+      // If meeting already has a link, reuse it
+      if (existingMeeting.meeting_link) {
+        // Update status to in_progress if not already
+        if (existingMeeting.status !== 'in_progress') {
+          allMeetings[meetingIndex] = {
+            ...existingMeeting,
+            status: 'in_progress',
+            started_at: existingMeeting.started_at || new Date().toISOString(),
+          };
+          saveMeetings(allMeetings);
+        }
+        
+        window.open(existingMeeting.meeting_link, '_blank');
+        return existingMeeting.meeting_link;
+      }
+      
+      // Generate new meeting link
+      const meetingLink = `https://meet.google.com/new?mid=${meeting.id}`;
+      
+      allMeetings[meetingIndex] = {
+        ...existingMeeting,
+        meeting_link: meetingLink,
+        status: 'in_progress',
+        started_at: new Date().toISOString(),
+      };
+      
+      saveMeetings(allMeetings);
+      window.open(meetingLink, '_blank');
+      
+      return meetingLink;
+    } catch (error) {
+      console.error('Error joining meeting:', error);
+      toast.error('Failed to join meeting');
+      return null;
+    }
+  }, [user]);
+
+  // End a meeting - marks it as ended so it disappears from lists
+  const endMeeting = useCallback(async (meetingId: string) => {
+    if (!user) return false;
+
+    try {
+      const allMeetings = loadMeetings();
+      const meetingIndex = allMeetings.findIndex(m => m.id === meetingId);
+      
+      if (meetingIndex === -1) return false;
+      
+      allMeetings[meetingIndex] = {
+        ...allMeetings[meetingIndex],
+        status: 'ended',
+      };
+      
+      saveMeetings(allMeetings);
+      
+      // Update local state immediately
+      setMeetings(prev => prev.filter(m => m.id !== meetingId));
+      
+      toast.success('Meeting ended');
+      return true;
+    } catch (error) {
+      console.error('Error ending meeting:', error);
+      toast.error('Failed to end meeting');
+      return false;
+    }
+  }, [user]);
+
+  // Get meetings for a specific MTB - reads fresh from localStorage and sorts
   const getMeetingsForMTB = useCallback((mtbId: string): Meeting[] => {
     const allMeetings = loadMeetings();
-    return allMeetings.filter(m => m.mtb_id === mtbId);
+    const mtbMeetings = allMeetings.filter(m => m.mtb_id === mtbId && m.status !== 'ended');
+    return getUpcomingMeetingsSorted(mtbMeetings);
   }, []);
 
   // Get earliest upcoming meeting for a specific MTB
   const getUpcomingMeetingForMTB = useCallback((mtbId: string): Meeting | null => {
     const mtbMeetings = getMeetingsForMTB(mtbId);
-    const now = new Date();
-    
-    const upcomingMeetings = mtbMeetings
-      .filter(m => {
-        const meetingDateTime = new Date(`${m.scheduled_date}T${m.scheduled_time}`);
-        return meetingDateTime >= now;
-      })
-      .sort((a, b) => {
-        const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
-        const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
-        return dateA.getTime() - dateB.getTime();
-      });
-    
-    return upcomingMeetings[0] || null;
+    return mtbMeetings[0] || null;
   }, [getMeetingsForMTB]);
 
   const markNotificationsRead = async () => {
@@ -227,6 +375,8 @@ export const useMeetings = () => {
     unreadCount,
     createMeeting,
     deleteMeeting,
+    joinMeeting,
+    endMeeting,
     markNotificationsRead,
     getMeetingsForMTB,
     getUpcomingMeetingForMTB,

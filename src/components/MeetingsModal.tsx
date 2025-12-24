@@ -1,9 +1,8 @@
 import { Calendar, Clock, Video, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled } from '@/lib/meetingUtils';
+import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled, getUpcomingMeetingsSorted } from '@/lib/meetingUtils';
 import type { Meeting } from '@/lib/storage';
 
 interface MeetingsModalProps {
@@ -28,17 +27,8 @@ const MeetingsModal = ({
     return days.map(d => dayNames[d]).join(', ');
   };
 
-  const getMeetingStatus = (dateStr: string, timeStr: string) => {
-    const meetingDateTime = new Date(`${dateStr}T${timeStr}`);
-    if (isPast(meetingDateTime)) return 'past';
-    return 'upcoming';
-  };
-
-  // Filter to show only upcoming meetings or today's meetings
-  const upcomingMeetings = meetings.filter(m => {
-    const status = getMeetingStatus(m.scheduled_date, m.scheduled_time);
-    return status === 'upcoming' || isToday(parseISO(m.scheduled_date));
-  });
+  // Get sorted upcoming meetings
+  const upcomingMeetings = getUpcomingMeetingsSorted(meetings);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,7 +39,7 @@ const MeetingsModal = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto hide-scrollbar">
+        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto hide-scrollbar flex-1">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
@@ -62,19 +52,19 @@ const MeetingsModal = ({
           ) : (
             <div className="space-y-3">
               {upcomingMeetings.map((meeting) => {
-                const status = getMeetingStatus(meeting.scheduled_date, meeting.scheduled_time);
-                const isNow = isToday(parseISO(meeting.scheduled_date));
+                const joinEnabled = isJoinEnabled(meeting);
+                
                 
                 return (
                   <div
                     key={meeting.id}
                     className={cn(
                       'p-4 rounded-xl border transition-all duration-200',
-                      isNow 
+                      joinEnabled 
                         ? 'border-primary/30 bg-primary/5' 
                         : 'border-border bg-card hover:bg-muted/50'
                     )}
-                  >
+                    >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium text-foreground truncate">

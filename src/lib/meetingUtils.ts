@@ -1,4 +1,4 @@
-import { format, parseISO, isToday, isTomorrow, differenceInMinutes } from 'date-fns';
+import { format, parseISO, isToday, isTomorrow, differenceInMinutes, isAfter, startOfToday } from 'date-fns';
 import type { Meeting } from '@/lib/storage';
 
 /**
@@ -65,4 +65,48 @@ export const toLocalDateString = (date: Date): string => {
 export const parseLocalDate = (dateStr: string): Date => {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
+};
+
+/**
+ * Get meeting datetime for sorting
+ */
+export const getMeetingDateTime = (meeting: Meeting): Date => {
+  const [year, month, day] = meeting.scheduled_date.split('-').map(Number);
+  const [hours, minutes] = meeting.scheduled_time.split(':').map(Number);
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+/**
+ * Sort meetings chronologically (earliest first)
+ */
+export const sortMeetingsChronologically = (meetings: Meeting[]): Meeting[] => {
+  return [...meetings].sort((a, b) => {
+    const dateA = getMeetingDateTime(a);
+    const dateB = getMeetingDateTime(b);
+    return dateA.getTime() - dateB.getTime();
+  });
+};
+
+/**
+ * Filter and sort upcoming meetings (today and future)
+ */
+export const getUpcomingMeetingsSorted = (meetings: Meeting[]): Meeting[] => {
+  const now = new Date();
+  const todayStart = startOfToday();
+  
+  return meetings
+    .filter(m => {
+      const meetingDate = parseLocalDate(m.scheduled_date);
+      const meetingDateTime = getMeetingDateTime(m);
+      // Include if meeting date is today or later, and meeting hasn't ended (60 min grace)
+      const isUpcoming = isAfter(meetingDate, todayStart) || format(meetingDate, 'yyyy-MM-dd') === format(todayStart, 'yyyy-MM-dd');
+      const minutesSinceStart = differenceInMinutes(now, meetingDateTime);
+      const hasEnded = minutesSinceStart > 60; // Meeting considered ended 60 min after start
+      return isUpcoming && !hasEnded;
+    })
+    .sort((a, b) => {
+      const dateA = getMeetingDateTime(a);
+      const dateB = getMeetingDateTime(b);
+      return dateA.getTime() - dateB.getTime();
+    });
 };
