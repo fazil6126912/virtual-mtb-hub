@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { X, User, Search, Eye, Pencil, Trash2, Calendar, Clock } from 'lucide-react';
+import { X, User, Search, Eye, Pencil, Trash2, Calendar, Clock, Video } from 'lucide-react';
 import Header from '@/components/Header';
 import MTBSidebar from '@/components/MTBSidebar';
 import AddExpertModal from '@/components/AddExpertModal';
@@ -9,7 +9,9 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleMeetModal from '@/components/ScheduleMeetModal';
 import { useApp } from '@/contexts/AppContext';
 import { useMeetings } from '@/hooks/useMeetings';
-import { format, parseISO, isAfter, startOfToday } from 'date-fns';
+import { format, parseISO, isAfter, startOfToday, differenceInMinutes } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import type { Meeting } from '@/lib/storage';
 
 /**
  * MTBDetail page with owner/enrolled behaviors:
@@ -36,9 +38,11 @@ const MTBDetail = () => {
   const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [meetingToCancel, setMeetingToCancel] = useState<Meeting | null>(null);
+  const [cancelMeetingModalOpen, setCancelMeetingModalOpen] = useState(false);
   
   // All hooks must be called before any conditional returns
-  const { createMeeting, getMeetingsForMTB } = useMeetings();
+  const { createMeeting, deleteMeeting, getMeetingsForMTB } = useMeetings();
   
   // Update active section when URL changes
   useEffect(() => {
@@ -140,6 +144,33 @@ const MTBDetail = () => {
     }
     setDeleteCaseModalOpen(false);
     setCaseToDelete(null);
+  };
+
+  const handleCancelMeetingClick = (meeting: Meeting) => {
+    setMeetingToCancel(meeting);
+    setCancelMeetingModalOpen(true);
+  };
+
+  const handleConfirmCancelMeeting = async () => {
+    if (meetingToCancel) {
+      await deleteMeeting(meetingToCancel.id);
+    }
+    setCancelMeetingModalOpen(false);
+    setMeetingToCancel(null);
+  };
+
+  // Check if Join button should be enabled (5 minutes before meeting)
+  const isJoinEnabled = (meeting: Meeting): boolean => {
+    const now = new Date();
+    const meetingDateTime = new Date(`${meeting.scheduled_date}T${meeting.scheduled_time}`);
+    const minutesUntilMeeting = differenceInMinutes(meetingDateTime, now);
+    return minutesUntilMeeting <= 5 && minutesUntilMeeting >= -60; // Enable 5 min before, disable 60 min after
+  };
+
+  const handleJoinMeeting = (meeting: Meeting) => {
+    // For now, just log - would integrate with video provider
+    console.log('Joining meeting:', meeting.id);
+    window.open(`https://meet.google.com/new`, '_blank'); // Placeholder - would use actual meeting link
   };
 
   // Filter content based on search
@@ -496,32 +527,58 @@ const MTBDetail = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {upcomingMeetings.map(meeting => (
-                    <div 
-                      key={meeting.id}
-                      className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-lg"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Calendar className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {formatMeetingDate(meeting.scheduled_date)}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>{formatMeetingTime(meeting.scheduled_time)}</span>
-                            {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 && (
-                              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                                Recurring
-                              </span>
-                            )}
+                  {upcomingMeetings.map(meeting => {
+                    const joinEnabled = isJoinEnabled(meeting);
+                    
+                    return (
+                      <div 
+                        key={meeting.id}
+                        className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-lg"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <Calendar className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {formatMeetingDate(meeting.scheduled_date)}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>{formatMeetingTime(meeting.scheduled_time)}</span>
+                              {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 && (
+                                <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                  Recurring
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={joinEnabled ? "default" : "secondary"}
+                            onClick={() => handleJoinMeeting(meeting)}
+                            disabled={!joinEnabled}
+                            className="gap-1.5"
+                          >
+                            <Video className="w-4 h-4" />
+                            Join
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCancelMeetingClick(meeting)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -610,6 +667,17 @@ const MTBDetail = () => {
           description="Are you sure you want to delete this case? This action cannot be undone."
           confirmLabel="Delete"
           onConfirm={handleConfirmDeleteCase}
+          destructive
+        />
+
+        {/* Cancel Meeting Confirmation Modal */}
+        <ConfirmModal
+          open={cancelMeetingModalOpen}
+          onOpenChange={setCancelMeetingModalOpen}
+          title="Cancel Meeting"
+          description="Are you sure you want to cancel this meeting? This action cannot be undone."
+          confirmLabel="Confirm Cancel"
+          onConfirm={handleConfirmCancelMeeting}
           destructive
         />
       </div>

@@ -79,37 +79,43 @@ const ScheduleMeetModal = ({
   }, [selectedDates, selectedHour, selectedMinute, selectedPeriod]);
 
   const handleWeekdayToggle = (dayIndex: number) => {
+    const wasSelected = selectedWeekdays.includes(dayIndex);
+    
     setSelectedWeekdays(prev => {
-      const newWeekdays = prev.includes(dayIndex)
-        ? prev.filter(d => d !== dayIndex)
-        : [...prev, dayIndex];
-      
-      // Update selected dates based on new weekday selection
-      updateSelectedDatesForWeekdays(newWeekdays);
-      return newWeekdays;
+      if (wasSelected) {
+        // Deselecting: remove this weekday
+        return prev.filter(d => d !== dayIndex);
+      } else {
+        // Selecting: add this weekday
+        return [...prev, dayIndex];
+      }
     });
+    
+    // Handle date updates based on toggle action
+    if (wasSelected) {
+      // Deselecting: remove all dates that match this weekday
+      setSelectedDates(prev => prev.filter(d => getDay(d) !== dayIndex));
+    } else {
+      // Selecting: add all future dates for this weekday
+      addDatesForWeekday(dayIndex);
+    }
   };
 
-  // Update selected dates when weekdays change - selects all future dates matching those weekdays for 1 YEAR
-  const updateSelectedDatesForWeekdays = (weekdays: number[]) => {
-    if (weekdays.length === 0) return;
-    
+  // Add dates for a specific weekday (1 year ahead)
+  const addDatesForWeekday = (weekday: number) => {
     const today = startOfDay(new Date());
-    const futureMonths = 12; // Look ahead 12 months (1 year)
-    const endDate = addMonths(today, futureMonths);
+    const endDate = addYears(today, 1); // 1 year ahead
     const allDays = eachDayOfInterval({ start: today, end: endDate });
     
-    // Get dates that match selected weekdays and aren't in the past
+    // Get dates that match this weekday and aren't in the past
     const weekdayDates = allDays.filter(day => {
       const dayOfWeek = getDay(day);
-      return weekdays.includes(dayOfWeek) && !isBefore(startOfDay(day), today);
+      return dayOfWeek === weekday && !isBefore(startOfDay(day), today);
     });
     
-    // Merge with manually selected dates (preserve dates that don't match weekdays)
+    // Merge with existing dates, avoiding duplicates
     setSelectedDates(prev => {
-      const manualDates = prev.filter(d => !weekdays.includes(getDay(d)));
-      const merged = [...manualDates, ...weekdayDates];
-      // Remove duplicates
+      const merged = [...prev, ...weekdayDates];
       return merged.filter((date, index, self) => 
         index === self.findIndex(d => isSameDay(d, date))
       );
@@ -175,9 +181,9 @@ const ScheduleMeetModal = ({
   // Create empty cells for days before month starts
   const emptyCells = Array(startDayOfWeek).fill(null);
 
-  // Year options (current year and next year)
+  // Year options (current year + 10 years)
   const currentYear = getYear(new Date());
-  const yearOptions = [currentYear, currentYear + 1];
+  const yearOptions = Array.from({ length: 11 }, (_, i) => currentYear + i);
 
   const handleYearChange = (year: number) => {
     setCurrentMonth(setYear(currentMonth, year));
@@ -192,19 +198,19 @@ const ScheduleMeetModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+      <DialogContent className="sm:max-w-[440px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
           <DialogTitle className="text-lg font-semibold text-foreground">
             Schedule a Meeting
           </DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground">
             {mtbName}
           </p>
         </DialogHeader>
 
-        <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar">
+        <div className="px-6 py-4 space-y-4 overflow-y-auto hide-scrollbar flex-1">
           {/* Time Picker - 12-hour format with AM/PM */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Select Time</label>
             <div className="flex items-center justify-center gap-3">
               {/* Hour */}
@@ -269,7 +275,7 @@ const ScheduleMeetModal = ({
           </div>
 
           {/* Weekday Selector */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Repeat Weekly</label>
             <div className="flex justify-between gap-2">
               {dayLabels.map((label, index) => (
@@ -296,7 +302,7 @@ const ScheduleMeetModal = ({
           </div>
 
           {/* Calendar */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Select Date(s)</label>
               <div className="flex items-center gap-2">
@@ -333,7 +339,7 @@ const ScheduleMeetModal = ({
                   </button>
                   
                   {showYearDropdown && (
-                    <div className="absolute top-full right-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-10 overflow-hidden">
+                    <div className="absolute top-full right-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-50 overflow-hidden max-h-48 overflow-y-auto">
                       {yearOptions.map(year => (
                         <button
                           key={year}
