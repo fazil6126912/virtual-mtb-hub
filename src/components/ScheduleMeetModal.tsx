@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -8,14 +8,16 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameMonth,
   isSameDay,
   addMonths,
   subMonths,
+  addYears,
   getDay,
   isToday,
   isBefore,
   startOfDay,
+  getYear,
+  setYear,
 } from 'date-fns';
 
 interface ScheduleMeetModalProps {
@@ -39,11 +41,42 @@ const ScheduleMeetModal = ({
   mtbName,
   onSchedule,
 }: ScheduleMeetModalProps) => {
-  const [selectedTime, setSelectedTime] = useState('10:00');
+  const [selectedHour, setSelectedHour] = useState(10);
+  const [selectedMinute, setSelectedMinute] = useState(0);
+  const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>('AM');
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showYearDropdown, setShowYearDropdown] = useState(false);
+
+  // Convert 12-hour to 24-hour format for storage
+  const get24HourTime = (): string => {
+    let hour24 = selectedHour;
+    if (selectedPeriod === 'PM' && selectedHour !== 12) {
+      hour24 = selectedHour + 12;
+    } else if (selectedPeriod === 'AM' && selectedHour === 12) {
+      hour24 = 0;
+    }
+    return `${hour24.toString().padStart(2, '0')}:${selectedMinute.toString().padStart(2, '0')}`;
+  };
+
+  // Check if the selected time is valid (not in the past for today)
+  const isTimeValid = useMemo(() => {
+    if (selectedDates.length === 0) return true;
+    
+    const firstDate = selectedDates[0];
+    if (!isToday(firstDate)) return true;
+    
+    const now = new Date();
+    const selectedTime24 = get24HourTime();
+    const [hours, minutes] = selectedTime24.split(':').map(Number);
+    
+    const selectedDateTime = new Date(firstDate);
+    selectedDateTime.setHours(hours, minutes, 0, 0);
+    
+    return selectedDateTime > now;
+  }, [selectedDates, selectedHour, selectedMinute, selectedPeriod]);
 
   const handleWeekdayToggle = (dayIndex: number) => {
     setSelectedWeekdays(prev => {
@@ -57,12 +90,12 @@ const ScheduleMeetModal = ({
     });
   };
 
-  // Update selected dates when weekdays change - selects all future dates matching those weekdays
+  // Update selected dates when weekdays change - selects all future dates matching those weekdays for 1 YEAR
   const updateSelectedDatesForWeekdays = (weekdays: number[]) => {
     if (weekdays.length === 0) return;
     
     const today = startOfDay(new Date());
-    const futureMonths = 3; // Look ahead 3 months
+    const futureMonths = 12; // Look ahead 12 months (1 year)
     const endDate = addMonths(today, futureMonths);
     const allDays = eachDayOfInterval({ start: today, end: endDate });
     
@@ -101,25 +134,28 @@ const ScheduleMeetModal = ({
   };
 
   const handleSchedule = async () => {
-    if (!selectedTime) return;
     if (selectedDates.length === 0 && selectedWeekdays.length === 0) return;
+    if (!isTimeValid) return;
 
     setIsSubmitting(true);
     try {
       // Use the first selected date or today if only weekdays are selected
       const baseDate = selectedDates.length > 0 ? selectedDates[0] : new Date();
       const scheduleType = selectedWeekdays.length > 0 ? 'custom' : 'once';
+      const time24 = get24HourTime();
       
       await onSchedule(
         baseDate,
-        selectedTime,
+        time24,
         scheduleType,
         selectedWeekdays.length > 0 ? selectedWeekdays : null
       );
       
       onOpenChange(false);
       // Reset state
-      setSelectedTime('10:00');
+      setSelectedHour(10);
+      setSelectedMinute(0);
+      setSelectedPeriod('AM');
       setSelectedWeekdays([]);
       setSelectedDates([]);
       setCurrentMonth(new Date());
@@ -128,7 +164,7 @@ const ScheduleMeetModal = ({
     }
   };
 
-  const isValid = selectedTime && (selectedDates.length > 0 || selectedWeekdays.length > 0);
+  const isValid = (selectedDates.length > 0 || selectedWeekdays.length > 0) && isTimeValid;
 
   // Calendar generation
   const monthStart = startOfMonth(currentMonth);
@@ -138,6 +174,21 @@ const ScheduleMeetModal = ({
 
   // Create empty cells for days before month starts
   const emptyCells = Array(startDayOfWeek).fill(null);
+
+  // Year options (current year and next year)
+  const currentYear = getYear(new Date());
+  const yearOptions = [currentYear, currentYear + 1];
+
+  const handleYearChange = (year: number) => {
+    setCurrentMonth(setYear(currentMonth, year));
+    setShowYearDropdown(false);
+  };
+
+  // Hour options (1-12)
+  const hourOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  
+  // Minute options (0, 15, 30, 45)
+  const minuteOptions = [0, 15, 30, 45];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -152,18 +203,69 @@ const ScheduleMeetModal = ({
         </DialogHeader>
 
         <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-y-auto hide-scrollbar">
-          {/* Time Picker */}
+          {/* Time Picker - 12-hour format with AM/PM */}
           <div className="space-y-3">
             <label className="text-sm font-medium text-foreground">Select Time</label>
-            <div className="flex items-center justify-center">
-              <input
-                type="time"
-                value={selectedTime}
-                onChange={(e) => setSelectedTime(e.target.value)}
-                className="text-4xl font-light text-center py-3 px-6 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
-                style={{ fontVariantNumeric: 'tabular-nums' }}
-              />
+            <div className="flex items-center justify-center gap-3">
+              {/* Hour */}
+              <select
+                value={selectedHour}
+                onChange={(e) => setSelectedHour(parseInt(e.target.value))}
+                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center"
+              >
+                {hourOptions.map(hour => (
+                  <option key={hour} value={hour}>{hour.toString().padStart(2, '0')}</option>
+                ))}
+              </select>
+              
+              <span className="text-2xl font-light text-foreground">:</span>
+              
+              {/* Minute */}
+              <select
+                value={selectedMinute}
+                onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
+                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center"
+              >
+                {minuteOptions.map(minute => (
+                  <option key={minute} value={minute}>{minute.toString().padStart(2, '0')}</option>
+                ))}
+              </select>
+
+              {/* AM/PM Toggle */}
+              <div className="flex border-2 border-border rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPeriod('AM')}
+                  className={cn(
+                    'px-4 py-3 text-sm font-medium transition-all',
+                    selectedPeriod === 'AM'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  AM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPeriod('PM')}
+                  className={cn(
+                    'px-4 py-3 text-sm font-medium transition-all',
+                    selectedPeriod === 'PM'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-background text-muted-foreground hover:bg-muted'
+                  )}
+                >
+                  PM
+                </button>
+              </div>
             </div>
+            
+            {/* Time validation message */}
+            {!isTimeValid && (
+              <p className="text-xs text-destructive text-center">
+                Selected time has already passed. Please choose a future time.
+              </p>
+            )}
           </div>
 
           {/* Weekday Selector */}
@@ -188,7 +290,7 @@ const ScheduleMeetModal = ({
             </div>
             {selectedWeekdays.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Repeats every {selectedWeekdays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')}
+                Repeats every {selectedWeekdays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')} for 1 year
               </p>
             )}
           </div>
@@ -197,24 +299,57 @@ const ScheduleMeetModal = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Select Date(s)</label>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}
-                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4 text-muted-foreground" />
-                </button>
-                <span className="text-sm font-medium text-foreground min-w-[120px] text-center">
-                  {format(currentMonth, 'MMMM yyyy')}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
-                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                >
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
+              <div className="flex items-center gap-2">
+                {/* Month navigation */}
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMonth(prev => subMonths(prev, 1))}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                  <span className="text-sm font-medium text-foreground min-w-[80px] text-center">
+                    {format(currentMonth, 'MMMM')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+
+                {/* Year selector */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowYearDropdown(!showYearDropdown)}
+                    className="flex items-center gap-1 px-3 py-1.5 border border-border rounded-lg bg-background text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    {getYear(currentMonth)}
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                  
+                  {showYearDropdown && (
+                    <div className="absolute top-full right-0 mt-1 bg-background border border-border rounded-lg shadow-lg z-10 overflow-hidden">
+                      {yearOptions.map(year => (
+                        <button
+                          key={year}
+                          type="button"
+                          onClick={() => handleYearChange(year)}
+                          className={cn(
+                            'w-full px-4 py-2 text-sm text-left hover:bg-muted transition-colors',
+                            getYear(currentMonth) === year && 'bg-primary/10 text-primary font-medium'
+                          )}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
