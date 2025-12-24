@@ -27,13 +27,6 @@ const MTBDetail = () => {
   const sectionFromUrl = searchParams.get('section');
   const [activeSection, setActiveSection] = useState(sectionFromUrl || 'mycases');
   
-  // Update active section when URL changes
-  useEffect(() => {
-    if (sectionFromUrl && ['mycases', 'shared', 'experts', 'meetings'].includes(sectionFromUrl)) {
-      setActiveSection(sectionFromUrl);
-    }
-  }, [sectionFromUrl]);
-  
   const [showAddExpert, setShowAddExpert] = useState(false);
   const [showAddCase, setShowAddCase] = useState(false);
   const [showScheduleMeet, setShowScheduleMeet] = useState(false);
@@ -43,9 +36,21 @@ const MTBDetail = () => {
   const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
+  // All hooks must be called before any conditional returns
   const { createMeeting, getMeetingsForMTB } = useMeetings();
+  
+  // Update active section when URL changes
+  useEffect(() => {
+    if (sectionFromUrl && ['mycases', 'shared', 'experts', 'meetings'].includes(sectionFromUrl)) {
+      setActiveSection(sectionFromUrl);
+    }
+  }, [sectionFromUrl]);
 
-  // Defensive checks
+  // Get MTB from state
+  const mtb = id ? state.mtbs.find(m => m.id === id) : null;
+
+  // Defensive checks - after all hooks
   if (!id) {
     return (
       <div className="min-h-screen bg-muted flex flex-col">
@@ -65,8 +70,6 @@ const MTBDetail = () => {
       </div>
     );
   }
-
-  const mtb = state.mtbs.find(m => m.id === id);
 
   if (!mtb) {
     console.warn(`MTB with ID "${id}" not found in state. Available MTB IDs:`, state.mtbs.map(m => m.id));
