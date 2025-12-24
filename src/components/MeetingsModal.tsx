@@ -1,8 +1,9 @@
 import { Calendar, Clock, Video, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { format, parseISO, isToday, isTomorrow, isPast } from 'date-fns';
+import { parseISO, isToday, isTomorrow, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled } from '@/lib/meetingUtils';
 import type { Meeting } from '@/lib/storage';
 
 interface MeetingsModalProps {
@@ -22,13 +23,6 @@ const MeetingsModal = ({
   loading,
   onJoin,
 }: MeetingsModalProps) => {
-  const formatMeetingDate = (dateStr: string) => {
-    const date = parseISO(dateStr);
-    if (isToday(date)) return 'Today';
-    if (isTomorrow(date)) return 'Tomorrow';
-    return format(date, 'MMM d, yyyy');
-  };
-
   const formatRepeatDays = (days: number[] | null) => {
     if (!days || days.length === 0) return null;
     return days.map(d => dayNames[d]).join(', ');
@@ -90,11 +84,11 @@ const MeetingsModal = ({
                         <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="w-4 h-4 text-primary" />
-                            <span>{formatMeetingDate(meeting.scheduled_date)}</span>
+                            <span>{formatMeetingDateDisplay(meeting.scheduled_date)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Clock className="w-4 h-4 text-primary" />
-                            <span>{meeting.scheduled_time}</span>
+                            <span>{formatTime12Hour(meeting.scheduled_time)}</span>
                           </div>
                         </div>
 
@@ -109,15 +103,11 @@ const MeetingsModal = ({
                       <Button
                         size="sm"
                         onClick={() => onJoin?.(meeting)}
-                        className={cn(
-                          'flex-shrink-0',
-                          isNow 
-                            ? 'bg-primary hover:bg-primary/90 text-primary-foreground' 
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        )}
-                        disabled={status === 'past'}
+                        variant={isJoinEnabled(meeting) ? "default" : "secondary"}
+                        disabled={!isJoinEnabled(meeting)}
+                        className="flex-shrink-0 gap-1.5"
                       >
-                        <Video className="w-4 h-4 mr-1.5" />
+                        <Video className="w-4 h-4" />
                         Join
                       </Button>
                     </div>
