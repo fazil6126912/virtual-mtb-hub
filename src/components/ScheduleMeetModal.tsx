@@ -210,16 +210,16 @@ const ScheduleMeetModal = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[440px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 pt-4 pb-3 border-b border-border flex-shrink-0">
-          <DialogTitle className="text-lg font-semibold text-foreground">
+        <DialogHeader className="px-6 pt-3 pb-2 border-b border-border flex-shrink-0">
+          <DialogTitle className="text-base font-semibold text-foreground">
             Schedule a Meeting
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground -mt-1">
             {mtbName}
           </p>
         </DialogHeader>
 
-        <div className="px-6 py-3 space-y-3 overflow-y-auto hide-scrollbar flex-1">
+        <div className="px-6 py-2 space-y-2.5 overflow-y-auto hide-scrollbar flex-1">
           {/* Time Picker - 12-hour format with AM/PM */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Select Time</label>
