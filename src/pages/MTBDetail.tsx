@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { X, User, Search, Eye, Pencil, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { X, User, Search, Eye, Pencil, Trash2, Calendar, Clock } from 'lucide-react';
 import Header from '@/components/Header';
 import MTBSidebar from '@/components/MTBSidebar';
 import AddExpertModal from '@/components/AddExpertModal';
@@ -9,6 +9,7 @@ import ConfirmModal from '@/components/ConfirmModal';
 import ScheduleMeetModal from '@/components/ScheduleMeetModal';
 import { useApp } from '@/contexts/AppContext';
 import { useMeetings } from '@/hooks/useMeetings';
+import { format, parseISO, isAfter, startOfToday } from 'date-fns';
 
 /**
  * MTBDetail page with owner/enrolled behaviors:
@@ -18,9 +19,21 @@ import { useMeetings } from '@/hooks/useMeetings';
  */
 const MTBDetail = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { state, removeExpertFromMTB, sendInvitations, addCasesToMTB, removeCaseFromMTB, loadCaseForEditing } = useApp();
-  const [activeSection, setActiveSection] = useState('mycases');
+  
+  // Get section from query params
+  const sectionFromUrl = searchParams.get('section');
+  const [activeSection, setActiveSection] = useState(sectionFromUrl || 'mycases');
+  
+  // Update active section when URL changes
+  useEffect(() => {
+    if (sectionFromUrl && ['mycases', 'shared', 'experts', 'meetings'].includes(sectionFromUrl)) {
+      setActiveSection(sectionFromUrl);
+    }
+  }, [sectionFromUrl]);
+  
   const [showAddExpert, setShowAddExpert] = useState(false);
   const [showAddCase, setShowAddCase] = useState(false);
   const [showScheduleMeet, setShowScheduleMeet] = useState(false);
@@ -30,7 +43,7 @@ const MTBDetail = () => {
   const [deleteCaseModalOpen, setDeleteCaseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const { createMeeting } = useMeetings();
+  const { createMeeting, getMeetingsForMTB } = useMeetings();
 
   // Defensive checks
   if (!id) {
@@ -418,6 +431,94 @@ const MTBDetail = () => {
                   <p className="text-xs text-muted-foreground">
                     To add experts to this MTB, please contact the MTB creator.
                   </p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'meetings':
+        const mtbMeetings = getMeetingsForMTB(mtb.id);
+        const today = startOfToday();
+        const upcomingMeetings = mtbMeetings
+          .filter(m => {
+            const meetingDate = parseISO(m.scheduled_date);
+            return isAfter(meetingDate, today) || format(meetingDate, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+          })
+          .sort((a, b) => {
+            const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
+            const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
+            return dateA.getTime() - dateB.getTime();
+          });
+
+        const formatMeetingDate = (dateStr: string) => {
+          const date = parseISO(dateStr);
+          return format(date, 'EEE, d MMM');
+        };
+
+        const formatMeetingTime = (time: string) => {
+          const [hours, minutes] = time.split(':');
+          const date = new Date();
+          date.setHours(parseInt(hours), parseInt(minutes));
+          return format(date, 'h:mm a');
+        };
+
+        return (
+          <div className="p-4 md:p-6 animate-fade-in h-full overflow-y-auto">
+            <div className="vmtb-card p-6">
+              {/* Header with MTB name */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex items-center justify-center border-2 border-border flex-shrink-0">
+                    {mtb.dpImage ? (
+                      <img src={mtb.dpImage} alt={mtb.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                        <User className="w-5 h-5 text-primary/60" />
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h2 className="font-semibold text-foreground">{mtb.name}</h2>
+                    <p className="text-sm text-muted-foreground">Scheduled Meetings</p>
+                  </div>
+                </div>
+              </div>
+
+              {upcomingMeetings.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <Calendar className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                  <p>No upcoming meetings scheduled for this MTB.</p>
+                  {isOwner && <p className="text-sm mt-2">Use "Schedule a Meet" in the sidebar to schedule one.</p>}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {upcomingMeetings.map(meeting => (
+                    <div 
+                      key={meeting.id}
+                      className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded-lg"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Calendar className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {formatMeetingDate(meeting.scheduled_date)}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{formatMeetingTime(meeting.scheduled_time)}</span>
+                            {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 && (
+                              <span className="ml-2 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                Recurring
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
