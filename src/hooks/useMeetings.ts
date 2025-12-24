@@ -18,6 +18,8 @@ const loadMeetings = (): Meeting[] => {
 
 const saveMeetings = (meetings: Meeting[]) => {
   localStorage.setItem(MEETINGS_KEY, JSON.stringify(meetings));
+  // Dispatch custom event to notify other components
+  window.dispatchEvent(new CustomEvent('meetings-updated'));
 };
 
 const loadNotifications = (): MeetingNotification[] => {
@@ -45,10 +47,8 @@ export const useMeetings = () => {
   const getUserMtbIds = useCallback((): string[] => {
     if (!user) return [];
     
-    // Get all MTBs where user is owner or member (enrolled)
-    const userMtbIds = state.mtbs
-      .filter(mtb => mtb.isOwner || !mtb.isOwner) // This includes all MTBs user has access to
-      .map(mtb => mtb.id);
+    // Get all MTBs the user has access to (owner or member)
+    const userMtbIds = state.mtbs.map(mtb => mtb.id);
     
     return userMtbIds;
   }, [user, state.mtbs]);
@@ -90,7 +90,7 @@ export const useMeetings = () => {
     }
   }, [user]);
 
-  const createMeeting = async (
+  const createMeeting = useCallback(async (
     mtbId: string,
     mtbName: string,
     scheduledDate: Date,
@@ -118,17 +118,19 @@ export const useMeetings = () => {
       allMeetings.push(newMeeting);
       saveMeetings(allMeetings);
       
+      // Update local state immediately
+      setMeetings(prev => [...prev, newMeeting]);
+      
       toast.success('Meeting scheduled successfully');
-      fetchMeetings();
       return newMeeting;
     } catch (error) {
       console.error('Error creating meeting:', error);
       toast.error('Failed to schedule meeting');
       return null;
     }
-  };
+  }, [user]);
 
-  // Get meetings for a specific MTB
+  // Get meetings for a specific MTB - reads fresh from localStorage
   const getMeetingsForMTB = useCallback((mtbId: string): Meeting[] => {
     const allMeetings = loadMeetings();
     return allMeetings.filter(m => m.mtb_id === mtbId);
@@ -137,14 +139,12 @@ export const useMeetings = () => {
   // Get earliest upcoming meeting for a specific MTB
   const getUpcomingMeetingForMTB = useCallback((mtbId: string): Meeting | null => {
     const mtbMeetings = getMeetingsForMTB(mtbId);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     
     const upcomingMeetings = mtbMeetings
       .filter(m => {
-        const meetingDate = new Date(m.scheduled_date);
-        meetingDate.setHours(0, 0, 0, 0);
-        return meetingDate >= today;
+        const meetingDateTime = new Date(`${m.scheduled_date}T${m.scheduled_time}`);
+        return meetingDateTime >= now;
       })
       .sort((a, b) => {
         const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
@@ -174,6 +174,18 @@ export const useMeetings = () => {
       console.error('Error marking notifications as read:', error);
     }
   };
+
+  // Listen for meetings updates from other components
+  useEffect(() => {
+    const handleMeetingsUpdate = () => {
+      fetchMeetings();
+    };
+
+    window.addEventListener('meetings-updated', handleMeetingsUpdate);
+    return () => {
+      window.removeEventListener('meetings-updated', handleMeetingsUpdate);
+    };
+  }, [fetchMeetings]);
 
   useEffect(() => {
     if (user) {
