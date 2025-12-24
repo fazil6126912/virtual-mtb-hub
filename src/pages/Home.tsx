@@ -3,17 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import { useApp } from '@/contexts/AppContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { useMeetings } from '@/hooks/useMeetings';
 import { toast } from 'sonner';
-import { toast } from 'sonner';
-import { parseISO, format } from 'date-fns';
 import { ChevronDown, Video } from 'lucide-react';
-import { useSupabaseData } from '@/hooks/useSupabaseData';
 import CancerTypeSelect from '@/components/CancerTypeSelect';
 import MeetingsModal from '@/components/MeetingsModal';
 import { Button } from '@/components/ui/button';
 import { formatTime12Hour, formatMeetingDateDisplay, isJoinEnabled, getUpcomingMeetingsSorted } from '@/lib/meetingUtils';
-import type { Meeting } from '@/lib/storage';
 import type { Meeting } from '@/lib/storage';
 
 const Home = () => {
