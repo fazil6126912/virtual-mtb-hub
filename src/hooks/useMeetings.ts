@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useApp } from '@/contexts/AppContext';
 import { Meeting, MeetingNotification, generateId } from '@/lib/storage';
 import { toast } from 'sonner';
 
@@ -34,10 +35,23 @@ const saveNotifications = (notifications: MeetingNotification[]) => {
 
 export const useMeetings = () => {
   const { user } = useAuth();
+  const { state } = useApp();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [notifications, setNotifications] = useState<MeetingNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Get MTB IDs where the current user is a member or owner
+  const getUserMtbIds = useCallback((): string[] => {
+    if (!user) return [];
+    
+    // Get all MTBs where user is owner or member (enrolled)
+    const userMtbIds = state.mtbs
+      .filter(mtb => mtb.isOwner || !mtb.isOwner) // This includes all MTBs user has access to
+      .map(mtb => mtb.id);
+    
+    return userMtbIds;
+  }, [user, state.mtbs]);
 
   const fetchMeetings = useCallback(() => {
     if (!user) return;
@@ -45,11 +59,16 @@ export const useMeetings = () => {
     setLoading(true);
     try {
       const allMeetings = loadMeetings();
-      setMeetings(allMeetings);
+      const userMtbIds = getUserMtbIds();
+      
+      // Filter meetings to only include those from MTBs the user is part of
+      const userMeetings = allMeetings.filter(m => userMtbIds.includes(m.mtb_id));
+      
+      setMeetings(userMeetings);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, getUserMtbIds]);
 
   const fetchNotifications = useCallback(() => {
     if (!user) return;
@@ -98,11 +117,6 @@ export const useMeetings = () => {
       const allMeetings = loadMeetings();
       allMeetings.push(newMeeting);
       saveMeetings(allMeetings);
-
-      // Get MTB members from localStorage (simplified - in real app would be from state)
-      // For now, we'll create a notification that the creator won't see
-      // Since we don't have real MTB members in localStorage, we'll skip member notifications
-      // The meeting will still appear in the creator's Meetings section
       
       toast.success('Meeting scheduled successfully');
       fetchMeetings();
@@ -113,6 +127,33 @@ export const useMeetings = () => {
       return null;
     }
   };
+
+  // Get meetings for a specific MTB
+  const getMeetingsForMTB = useCallback((mtbId: string): Meeting[] => {
+    const allMeetings = loadMeetings();
+    return allMeetings.filter(m => m.mtb_id === mtbId);
+  }, []);
+
+  // Get earliest upcoming meeting for a specific MTB
+  const getUpcomingMeetingForMTB = useCallback((mtbId: string): Meeting | null => {
+    const mtbMeetings = getMeetingsForMTB(mtbId);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const upcomingMeetings = mtbMeetings
+      .filter(m => {
+        const meetingDate = new Date(m.scheduled_date);
+        meetingDate.setHours(0, 0, 0, 0);
+        return meetingDate >= today;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(`${a.scheduled_date}T${a.scheduled_time}`);
+        const dateB = new Date(`${b.scheduled_date}T${b.scheduled_time}`);
+        return dateA.getTime() - dateB.getTime();
+      });
+    
+    return upcomingMeetings[0] || null;
+  }, [getMeetingsForMTB]);
 
   const markNotificationsRead = async () => {
     if (!user || notifications.length === 0) return;
@@ -148,6 +189,8 @@ export const useMeetings = () => {
     unreadCount,
     createMeeting,
     markNotificationsRead,
+    getMeetingsForMTB,
+    getUpcomingMeetingForMTB,
     refetch: () => {
       fetchMeetings();
       fetchNotifications();

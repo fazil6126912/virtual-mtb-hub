@@ -4,6 +4,7 @@ import {
   FolderOpen,
   Share2,
   Users,
+  Calendar,
   Plus,
   Video,
   UserPlus,
@@ -26,6 +27,7 @@ const sections = [
   { id: 'mycases', label: 'My Cases', icon: FolderOpen },
   { id: 'shared', label: 'Shared Cases', icon: Share2 },
   { id: 'experts', label: 'Experts', icon: Users },
+  { id: 'meetings', label: 'Meetings', icon: Calendar },
 ];
 
 const MTBSidebar = ({

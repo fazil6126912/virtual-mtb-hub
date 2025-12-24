@@ -2,6 +2,8 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { MTB } from '@/lib/storage';
 import { useApp } from '@/contexts/AppContext';
+import { useMeetings } from '@/hooks/useMeetings';
+import { format, parseISO } from 'date-fns';
 
 interface MTBCardProps {
   mtb: MTB;
@@ -11,6 +13,7 @@ interface MTBCardProps {
 const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
   const navigate = useNavigate();
   const { state } = useApp();
+  const { getUpcomingMeetingForMTB } = useMeetings();
   const [visitedNotifications, setVisitedNotifications] = useState<Set<string>>(new Set());
 
   // Calculate actual expert count for this MTB
@@ -18,6 +21,9 @@ const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
   
   // Calculate actual case count for this MTB
   const caseCount = state.cases.filter(c => mtb.cases.includes(c.id)).length;
+
+  // Get earliest upcoming meeting for this MTB
+  const upcomingMeeting = getUpcomingMeetingForMTB(mtb.id);
 
   // Generate notifications: cases added to this MTB by other users
   const notifications = state.cases
@@ -36,11 +42,27 @@ const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
     navigate(`/cases/${caseId}`);
   };
 
-  // Removed handleCardClick as only title should navigate
-
   const handleTitleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     navigate(`/mtbs/${mtb.id}`);
+  };
+
+  const handleMeetingClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Navigate to MTB and set section to meetings
+    navigate(`/mtbs/${mtb.id}?section=meetings`);
+  };
+
+  const formatMeetingDate = (dateStr: string) => {
+    const date = parseISO(dateStr);
+    return format(date, 'EEE, d MMM');
+  };
+
+  const formatMeetingTime = (time: string) => {
+    const [hours, minutes] = time.split(':');
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return format(date, 'h:mm a');
   };
 
   return (
@@ -73,8 +95,19 @@ const MTBCard = ({ mtb, isDragging }: MTBCardProps) => {
         </div>
       </div>
 
-      {/* Notifications Area - Scrollable, hidden scrollbar */}
+      {/* Middle Section - Upcoming Meeting or Notifications */}
       <div className="p-4 flex-grow overflow-y-auto scrollbar-hide" onClick={(e) => e.stopPropagation()}>
+        {/* Show upcoming meeting if available */}
+        {upcomingMeeting && (
+          <button
+            onClick={handleMeetingClick}
+            className="w-full text-left text-sm text-primary hover:underline transition-colors mb-2"
+          >
+            Next meeting: {formatMeetingDate(upcomingMeeting.scheduled_date)} • {formatMeetingTime(upcomingMeeting.scheduled_time)}
+          </button>
+        )}
+        
+        {/* Show notifications */}
         {unvisitedNotifications.length > 0 && (
           <div className="space-y-2">
             {unvisitedNotifications.map(notification => (
