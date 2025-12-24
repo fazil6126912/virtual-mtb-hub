@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Zap } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
   format,
@@ -28,8 +29,9 @@ interface ScheduleMeetModalProps {
   onSchedule: (
     scheduledDate: Date,
     scheduledTime: string,
-    scheduleType: 'once' | 'custom',
-    repeatDays: number[] | null
+    scheduleType: 'once' | 'custom' | 'instant',
+    repeatDays: number[] | null,
+    explicitDates?: Date[] // Additional explicit dates
   ) => Promise<void>;
 }
 
@@ -43,6 +45,7 @@ const ScheduleMeetModal = ({
 }: ScheduleMeetModalProps) => {
   const [selectedHour, setSelectedHour] = useState(10);
   const [selectedMinute, setSelectedMinute] = useState(0);
+  const [minuteInput, setMinuteInput] = useState('00');
   const [selectedPeriod, setSelectedPeriod] = useState<'AM' | 'PM'>('AM');
   const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -78,47 +81,42 @@ const ScheduleMeetModal = ({
     return selectedDateTime > now;
   }, [selectedDates, selectedHour, selectedMinute, selectedPeriod]);
 
-  const handleWeekdayToggle = (dayIndex: number) => {
-    const wasSelected = selectedWeekdays.includes(dayIndex);
+  // Handle minute input change
+  const handleMinuteInputChange = (value: string) => {
+    // Only allow numeric input
+    const numericValue = value.replace(/\D/g, '');
     
-    setSelectedWeekdays(prev => {
-      if (wasSelected) {
-        // Deselecting: remove this weekday
-        return prev.filter(d => d !== dayIndex);
-      } else {
-        // Selecting: add this weekday
-        return [...prev, dayIndex];
-      }
-    });
+    if (numericValue === '') {
+      setMinuteInput('');
+      setSelectedMinute(0);
+      return;
+    }
     
-    // Handle date updates based on toggle action
-    if (wasSelected) {
-      // Deselecting: remove all dates that match this weekday
-      setSelectedDates(prev => prev.filter(d => getDay(d) !== dayIndex));
+    const numValue = parseInt(numericValue, 10);
+    
+    // Limit to 2 digits and max 59
+    if (numValue > 59) {
+      setMinuteInput('59');
+      setSelectedMinute(59);
     } else {
-      // Selecting: add all future dates for this weekday
-      addDatesForWeekday(dayIndex);
+      setMinuteInput(numericValue.slice(0, 2));
+      setSelectedMinute(numValue);
     }
   };
 
-  // Add dates for a specific weekday (1 year ahead)
-  const addDatesForWeekday = (weekday: number) => {
-    const today = startOfDay(new Date());
-    const endDate = addYears(today, 1); // 1 year ahead
-    const allDays = eachDayOfInterval({ start: today, end: endDate });
-    
-    // Get dates that match this weekday and aren't in the past
-    const weekdayDates = allDays.filter(day => {
-      const dayOfWeek = getDay(day);
-      return dayOfWeek === weekday && !isBefore(startOfDay(day), today);
-    });
-    
-    // Merge with existing dates, avoiding duplicates
-    setSelectedDates(prev => {
-      const merged = [...prev, ...weekdayDates];
-      return merged.filter((date, index, self) => 
-        index === self.findIndex(d => isSameDay(d, date))
-      );
+  // Handle minute input blur - pad single digits
+  const handleMinuteBlur = () => {
+    const paddedValue = selectedMinute.toString().padStart(2, '0');
+    setMinuteInput(paddedValue);
+  };
+
+  const handleWeekdayToggle = (dayIndex: number) => {
+    setSelectedWeekdays(prev => {
+      if (prev.includes(dayIndex)) {
+        return prev.filter(d => d !== dayIndex);
+      } else {
+        return [...prev, dayIndex];
+      }
     });
   };
 
@@ -145,40 +143,104 @@ const ScheduleMeetModal = ({
 
     setIsSubmitting(true);
     try {
-      // Use the first selected date or today if only weekdays are selected
-      // Sort dates to ensure we get the earliest one first
-      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
-      const baseDate = sortedDates.length > 0 ? sortedDates[0] : new Date();
-      const scheduleType = selectedWeekdays.length > 0 ? 'custom' : 'once';
       const time24 = get24HourTime();
       
-      // Create a new date object to avoid mutation issues
-      // Use the local date components to prevent timezone shifting
-      const scheduledDate = new Date(
-        baseDate.getFullYear(),
-        baseDate.getMonth(),
-        baseDate.getDate(),
-        12, 0, 0, 0 // Set to noon to avoid any date boundary issues
-      );
+      // Sort dates to ensure we get the earliest one first
+      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
       
-      await onSchedule(
-        scheduledDate,
-        time24,
-        scheduleType,
-        selectedWeekdays.length > 0 ? selectedWeekdays : null
-      );
+      // Determine schedule type
+      const hasRecurrence = selectedWeekdays.length > 0;
+      const hasExplicitDates = selectedDates.length > 0;
+      
+      if (hasRecurrence && hasExplicitDates) {
+        // Both recurrence and explicit dates - create separate meetings
+        // First, create the recurring meeting
+        const baseDate = sortedDates.length > 0 ? sortedDates[0] : new Date();
+        const scheduledDate = new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth(),
+          baseDate.getDate(),
+          12, 0, 0, 0
+        );
+        
+        await onSchedule(
+          scheduledDate,
+          time24,
+          'custom',
+          selectedWeekdays,
+          sortedDates // Pass explicit dates separately
+        );
+      } else if (hasRecurrence) {
+        // Only recurrence
+        const baseDate = new Date();
+        const scheduledDate = new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth(),
+          baseDate.getDate(),
+          12, 0, 0, 0
+        );
+        
+        await onSchedule(
+          scheduledDate,
+          time24,
+          'custom',
+          selectedWeekdays
+        );
+      } else {
+        // Only explicit dates
+        const baseDate = sortedDates[0];
+        const scheduledDate = new Date(
+          baseDate.getFullYear(),
+          baseDate.getMonth(),
+          baseDate.getDate(),
+          12, 0, 0, 0
+        );
+        
+        await onSchedule(
+          scheduledDate,
+          time24,
+          'once',
+          null
+        );
+      }
       
       onOpenChange(false);
-      // Reset state
-      setSelectedHour(10);
-      setSelectedMinute(0);
-      setSelectedPeriod('AM');
-      setSelectedWeekdays([]);
-      setSelectedDates([]);
-      setCurrentMonth(new Date());
+      resetState();
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleInstantMeeting = async () => {
+    setIsSubmitting(true);
+    try {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const time24 = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+      
+      await onSchedule(
+        now,
+        time24,
+        'instant',
+        null
+      );
+      
+      onOpenChange(false);
+      resetState();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetState = () => {
+    setSelectedHour(10);
+    setSelectedMinute(0);
+    setMinuteInput('00');
+    setSelectedPeriod('AM');
+    setSelectedWeekdays([]);
+    setSelectedDates([]);
+    setCurrentMonth(new Date());
   };
 
   const isValid = (selectedDates.length > 0 || selectedWeekdays.length > 0) && isTimeValid;
@@ -203,9 +265,6 @@ const ScheduleMeetModal = ({
 
   // Hour options (1-12)
   const hourOptions = Array.from({ length: 12 }, (_, i) => i + 1);
-  
-  // Minute options (0, 15, 30, 45)
-  const minuteOptions = [0, 15, 30, 45];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -220,6 +279,24 @@ const ScheduleMeetModal = ({
         </DialogHeader>
 
         <div className="px-6 py-2 space-y-2.5 overflow-y-auto hide-scrollbar flex-1">
+          {/* Instant Meeting Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleInstantMeeting}
+            disabled={isSubmitting}
+            className="w-full gap-2 border-primary/30 hover:bg-primary/5"
+          >
+            <Zap className="w-4 h-4 text-primary" />
+            Start Instant Meeting
+          </Button>
+
+          <div className="relative flex items-center py-1">
+            <div className="flex-1 border-t border-border" />
+            <span className="px-3 text-xs text-muted-foreground">or schedule</span>
+            <div className="flex-1 border-t border-border" />
+          </div>
+
           {/* Time Picker - 12-hour format with AM/PM */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Select Time</label>
@@ -237,16 +314,16 @@ const ScheduleMeetModal = ({
               
               <span className="text-2xl font-light text-foreground">:</span>
               
-              {/* Minute */}
-              <select
-                value={selectedMinute}
-                onChange={(e) => setSelectedMinute(parseInt(e.target.value))}
-                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center"
-              >
-                {minuteOptions.map(minute => (
-                  <option key={minute} value={minute}>{minute.toString().padStart(2, '0')}</option>
-                ))}
-              </select>
+              {/* Minute - Input with validation */}
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={minuteInput}
+                onChange={(e) => handleMinuteInputChange(e.target.value)}
+                onBlur={handleMinuteBlur}
+                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-center w-20 h-auto"
+                maxLength={2}
+              />
 
               {/* AM/PM Toggle */}
               <div className="flex border-2 border-border rounded-xl overflow-hidden">
@@ -307,7 +384,7 @@ const ScheduleMeetModal = ({
             </div>
             {selectedWeekdays.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Repeats every {selectedWeekdays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')} for 1 year
+                Repeats every {selectedWeekdays.map(d => ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d]).join(', ')}
               </p>
             )}
           </div>

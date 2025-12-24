@@ -94,9 +94,13 @@ export interface Meeting {
   created_by: string;
   scheduled_date: string;
   scheduled_time: string;
-  schedule_type: 'once' | 'custom';
+  schedule_type: 'once' | 'custom' | 'instant';
   repeat_days: number[] | null;
   created_at: string;
+  is_recurring_instance?: boolean; // True if this is a specific weekday recurrence
+  meeting_link?: string; // Store the meeting link once created
+  status?: 'scheduled' | 'in_progress' | 'ended'; // Meeting lifecycle
+  started_at?: string; // When meeting was started
 }
 
 export interface MeetingNotification {
