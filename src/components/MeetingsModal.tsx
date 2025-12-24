@@ -24,12 +24,14 @@ const MeetingsModal = ({
 }: MeetingsModalProps) => {
   const formatRepeatDays = (days: number[] | null) => {
     if (!days || days.length === 0) return null;
+    const fullDayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const sortedDays = [...days].sort((a, b) => a - b);
+    
     if (sortedDays.length === 1) {
-      return `${dayNames[sortedDays[0]]}s`;
+      return fullDayNames[sortedDays[0]];
     }
-    // Format as "Fridays & Saturdays" for multiple days
-    const dayStrings = sortedDays.map(d => `${dayNames[d]}s`);
+    // Format as "Friday & Saturday" for multiple days
+    const dayStrings = sortedDays.map(d => fullDayNames[d]);
     if (dayStrings.length === 2) {
       return dayStrings.join(' & ');
     }
@@ -76,27 +78,36 @@ const MeetingsModal = ({
                     >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-foreground truncate">
-                          {meeting.mtb_name || 'MTB Meeting'}
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-medium text-foreground truncate">
+                            {meeting.mtb_name || 'MTB Meeting'}
+                          </h4>
+                          {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                              <RefreshCw className="w-3 h-3" />
+                              Recurring
+                            </span>
+                          )}
+                        </div>
                         
                         <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <span>{formatMeetingDateDisplay(meeting.scheduled_date)}</span>
-                          </div>
+                          {meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0 ? (
+                            // For recurring meetings, show the days instead of a single date
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-4 h-4 text-primary" />
+                              <span>Every {formatRepeatDays(meeting.repeat_days)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="w-4 h-4 text-primary" />
+                              <span>{formatMeetingDateDisplay(meeting.scheduled_date)}</span>
+                            </div>
+                          )}
                           <div className="flex items-center gap-1.5">
                             <Clock className="w-4 h-4 text-primary" />
                             <span>{formatTime12Hour(meeting.scheduled_time)}</span>
                           </div>
                         </div>
-
-                        {meeting.schedule_type === 'custom' && meeting.repeat_days && (
-                          <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
-                            <RefreshCw className="w-3.5 h-3.5 text-primary" />
-                            <span>Recurring on {formatRepeatDays(meeting.repeat_days)}</span>
-                          </div>
-                        )}
                       </div>
 
                       <Button

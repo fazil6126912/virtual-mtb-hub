@@ -32,11 +32,29 @@ export const formatMeetingDateShort = (dateStr: string): string => {
 };
 
 /**
- * Check if Join button should be enabled (5 minutes before meeting, up to 60 min after start)
+ * Check if Join button should be enabled
+ * For recurring meetings: check if current day matches and time is within range
+ * For one-time meetings: 5 minutes before meeting, up to 60 min after start
  */
 export const isJoinEnabled = (meeting: Meeting): boolean => {
   const now = new Date();
-  // Parse the date and time correctly without timezone issues
+  
+  // For recurring meetings, check if today is one of the repeat days and time is appropriate
+  if (meeting.schedule_type === 'custom' && meeting.repeat_days && meeting.repeat_days.length > 0) {
+    const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    
+    if (!meeting.repeat_days.includes(currentDayOfWeek)) {
+      return false; // Not a meeting day
+    }
+    
+    // Check if current time is within the meeting window
+    const [hours, minutes] = meeting.scheduled_time.split(':').map(Number);
+    const meetingToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+    const minutesUntilMeeting = differenceInMinutes(meetingToday, now);
+    return minutesUntilMeeting <= 5 && minutesUntilMeeting >= -60;
+  }
+  
+  // For one-time meetings
   const [year, month, day] = meeting.scheduled_date.split('-').map(Number);
   const [hours, minutes] = meeting.scheduled_time.split(':').map(Number);
   
@@ -89,6 +107,7 @@ export const sortMeetingsChronologically = (meetings: Meeting[]): Meeting[] => {
 
 /**
  * Filter and sort upcoming meetings (today and future)
+ * Recurring meetings are always considered upcoming
  */
 export const getUpcomingMeetingsSorted = (meetings: Meeting[]): Meeting[] => {
   const now = new Date();
@@ -96,6 +115,11 @@ export const getUpcomingMeetingsSorted = (meetings: Meeting[]): Meeting[] => {
   
   return meetings
     .filter(m => {
+      // Recurring meetings are always considered upcoming
+      if (m.schedule_type === 'custom' && m.repeat_days && m.repeat_days.length > 0) {
+        return true;
+      }
+      
       const meetingDate = parseLocalDate(m.scheduled_date);
       const meetingDateTime = getMeetingDateTime(m);
       // Include if meeting date is today or later, and meeting hasn't ended (60 min grace)
@@ -105,8 +129,22 @@ export const getUpcomingMeetingsSorted = (meetings: Meeting[]): Meeting[] => {
       return isUpcoming && !hasEnded;
     })
     .sort((a, b) => {
-      const dateA = getMeetingDateTime(a);
-      const dateB = getMeetingDateTime(b);
-      return dateA.getTime() - dateB.getTime();
+      // Put recurring meetings at the end (or sort by created_at)
+      const aIsRecurring = a.schedule_type === 'custom' && a.repeat_days && a.repeat_days.length > 0;
+      const bIsRecurring = b.schedule_type === 'custom' && b.repeat_days && b.repeat_days.length > 0;
+      
+      // Non-recurring meetings sorted by datetime
+      if (!aIsRecurring && !bIsRecurring) {
+        const dateA = getMeetingDateTime(a);
+        const dateB = getMeetingDateTime(b);
+        return dateA.getTime() - dateB.getTime();
+      }
+      
+      // Recurring meetings come after specific-date meetings
+      if (aIsRecurring && !bIsRecurring) return 1;
+      if (!aIsRecurring && bIsRecurring) return -1;
+      
+      // Both recurring - sort by creation date
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
     });
 };

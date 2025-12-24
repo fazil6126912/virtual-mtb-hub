@@ -12,7 +12,6 @@ import {
   isSameDay,
   addMonths,
   subMonths,
-  addYears,
   getDay,
   isToday,
   isBefore,
@@ -117,36 +116,14 @@ const ScheduleMeetModal = ({
   const startDayOfWeek = getDay(monthStart);
 
   const handleWeekdayToggle = (dayIndex: number) => {
-    // Get all dates for the next 1 year that match this weekday
-    const today = startOfDay(new Date());
-    const oneYearFromNow = addYears(today, 1);
-    const allDatesInYear = eachDayOfInterval({ start: today, end: oneYearFromNow });
-    
-    const matchingDates = allDatesInYear.filter(day => {
-      const dayOfWeek = getDay(day);
-      return dayOfWeek === dayIndex;
-    });
-
+    // Toggle weekday selection - this does NOT expand into individual dates
+    // The recurring weekday is stored as ONE meeting with repeat_days set
     setSelectedWeekdays(prev => {
       const isCurrentlySelected = prev.includes(dayIndex);
       
       if (isCurrentlySelected) {
-        // Deselect weekday - remove all matching dates for that weekday
-        setSelectedDates(prevDates => 
-          prevDates.filter(d => getDay(d) !== dayIndex)
-        );
         return prev.filter(d => d !== dayIndex);
       } else {
-        // Select weekday - add all matching dates for the next year
-        setSelectedDates(prevDates => {
-          const newDates = [...prevDates];
-          matchingDates.forEach(md => {
-            if (!newDates.some(d => isSameDay(d, md))) {
-              newDates.push(md);
-            }
-          });
-          return newDates;
-        });
         return [...prev, dayIndex];
       }
     });
@@ -166,7 +143,10 @@ const ScheduleMeetModal = ({
   };
 
   const isDateSelected = (date: Date) => {
-    return selectedDates.some(d => isSameDay(d, date));
+    // Check if date is explicitly selected OR if it matches a selected weekday
+    const dayOfWeek = getDay(date);
+    const matchesWeekday = selectedWeekdays.includes(dayOfWeek) && !isBefore(startOfDay(date), startOfDay(new Date()));
+    return matchesWeekday || selectedDates.some(d => isSameDay(d, date));
   };
 
   const handleSchedule = async () => {
@@ -177,17 +157,21 @@ const ScheduleMeetModal = ({
     try {
       const time24 = get24HourTime();
       
-      // Sort dates to ensure we get the earliest one first
-      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
-      
       // Determine schedule type
       const hasRecurrence = selectedWeekdays.length > 0;
-      const hasExplicitDates = selectedDates.length > 0;
+      
+      // Explicit dates are ONLY dates that don't match a recurring weekday
+      // Filter out any dates that match a selected weekday to avoid duplicates
+      const explicitDates = selectedDates.filter(date => {
+        const dayOfWeek = getDay(date);
+        return !selectedWeekdays.includes(dayOfWeek);
+      }).sort((a, b) => a.getTime() - b.getTime());
+      
+      const hasExplicitDates = explicitDates.length > 0;
       
       if (hasRecurrence && hasExplicitDates) {
         // Both recurrence and explicit dates - create separate meetings
-        // First, create the recurring meeting
-        const baseDate = sortedDates.length > 0 ? sortedDates[0] : new Date();
+        const baseDate = new Date();
         const scheduledDate = new Date(
           baseDate.getFullYear(),
           baseDate.getMonth(),
@@ -200,7 +184,7 @@ const ScheduleMeetModal = ({
           time24,
           'custom',
           selectedWeekdays,
-          sortedDates // Pass explicit dates separately
+          explicitDates // Pass only truly explicit dates (not matching recurring days)
         );
       } else if (hasRecurrence) {
         // Only recurrence
@@ -218,8 +202,9 @@ const ScheduleMeetModal = ({
           'custom',
           selectedWeekdays
         );
-      } else {
-        // Only explicit dates
+      } else if (!hasRecurrence && selectedDates.length > 0) {
+        // Only explicit dates (one-time meetings)
+        const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
         const baseDate = sortedDates[0];
         const scheduledDate = new Date(
           baseDate.getFullYear(),
