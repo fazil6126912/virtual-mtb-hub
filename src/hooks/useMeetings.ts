@@ -130,6 +130,27 @@ export const useMeetings = () => {
     }
   }, [user]);
 
+  // Delete a meeting
+  const deleteMeeting = useCallback(async (meetingId: string) => {
+    if (!user) return false;
+
+    try {
+      const allMeetings = loadMeetings();
+      const updatedMeetings = allMeetings.filter(m => m.id !== meetingId);
+      saveMeetings(updatedMeetings);
+      
+      // Update local state immediately
+      setMeetings(prev => prev.filter(m => m.id !== meetingId));
+      
+      toast.success('Meeting cancelled successfully');
+      return true;
+    } catch (error) {
+      console.error('Error deleting meeting:', error);
+      toast.error('Failed to cancel meeting');
+      return false;
+    }
+  }, [user]);
+
   // Get meetings for a specific MTB - reads fresh from localStorage
   const getMeetingsForMTB = useCallback((mtbId: string): Meeting[] => {
     const allMeetings = loadMeetings();
@@ -200,6 +221,7 @@ export const useMeetings = () => {
     loading,
     unreadCount,
     createMeeting,
+    deleteMeeting,
     markNotificationsRead,
     getMeetingsForMTB,
     getUpcomingMeetingForMTB,
