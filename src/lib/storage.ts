@@ -7,6 +7,8 @@ export interface User {
   password: string;
   verified: boolean;
   profilePicture?: string; // Base64 or data URL
+  profession?: string;
+  hospitalName?: string;
 }
 
 export interface PatientData {

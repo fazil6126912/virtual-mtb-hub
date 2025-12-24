@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { toast } from 'sonner';
-import { Upload, X } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import ProfessionSelect from '@/components/ProfessionSelect';
 
 const Signup = () => {
@@ -70,7 +70,7 @@ const Signup = () => {
     setLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (signup({ name, email, phone, password, profilePicture })) {
+    if (signup({ name, email, phone, password, profilePicture, profession, hospitalName })) {
       toast.success('Account created! Please verify your email.');
       navigate('/otp');
     } else {
