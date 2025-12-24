@@ -117,24 +117,27 @@ const ScheduleMeetModal = ({
   const startDayOfWeek = getDay(monthStart);
 
   const handleWeekdayToggle = (dayIndex: number) => {
-    // Get all dates in the current month that match this weekday
-    const matchingDates = daysInMonth.filter(day => {
+    // Get all dates for the next 1 year that match this weekday
+    const today = startOfDay(new Date());
+    const oneYearFromNow = addYears(today, 1);
+    const allDatesInYear = eachDayOfInterval({ start: today, end: oneYearFromNow });
+    
+    const matchingDates = allDatesInYear.filter(day => {
       const dayOfWeek = getDay(day);
-      const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
-      return dayOfWeek === dayIndex && !isPast;
+      return dayOfWeek === dayIndex;
     });
 
     setSelectedWeekdays(prev => {
       const isCurrentlySelected = prev.includes(dayIndex);
       
       if (isCurrentlySelected) {
-        // Deselect weekday - remove all matching dates
+        // Deselect weekday - remove all matching dates for that weekday
         setSelectedDates(prevDates => 
-          prevDates.filter(d => !matchingDates.some(md => isSameDay(md, d)))
+          prevDates.filter(d => getDay(d) !== dayIndex)
         );
         return prev.filter(d => d !== dayIndex);
       } else {
-        // Select weekday - add all matching dates that aren't already selected
+        // Select weekday - add all matching dates for the next year
         setSelectedDates(prevDates => {
           const newDates = [...prevDates];
           matchingDates.forEach(md => {
