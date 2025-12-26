@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, ChevronDown, CheckCircle } from 'lucide-react';
 import Header from '@/components/Header';
 import ZoomablePreview from '@/components/ZoomablePreview';
 import ConfirmModal from '@/components/ConfirmModal';
-import FinalSubmitModal from '@/components/FinalSubmitModal';
+import CaseConfirmModal from '@/components/CaseConfirmModal';
+import FullPageLoader from '@/components/FullPageLoader';
 import { useApp } from '@/contexts/AppContext';
 import { useSupabaseData } from '@/hooks/useSupabaseData';
 import { toast } from 'sonner';
@@ -37,14 +38,12 @@ const FilePreview = () => {
   } = useApp();
   const { createPatientAndCase, modifyCase: supabaseModifyCase } = useSupabaseData();
   const mode = state.isEditMode ? 'MODIFY' : 'CREATE';
-  const [isModifying, setIsModifying] = useState(false);
   const [jsonText, setJsonText] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showModifyModal, setShowModifyModal] = useState(false);
   const [showIncompleteModal, setShowIncompleteModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [triggerShake, setTriggerShake] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
 
   const currentIndex = parseInt(fileIndex || '0', 10);
   const currentFile = state.uploadedFiles[currentIndex];
@@ -203,50 +202,45 @@ const FilePreview = () => {
     if (!state.currentPatient) {
       console.error('[handleCreateCase] No patient data found');
       toast.error('No patient data found');
-      return;
+      throw new Error('No patient data found');
     }
 
-    setIsCreating(true);
-    try {
-      // Save current file data first
-      console.log('[handleCreateCase] Saving current file data...');
-      saveCurrentFile();
-      
-      console.log('[handleCreateCase] Calling createPatientAndCase...');
-      console.log('[handleCreateCase] Patient:', state.currentPatient);
-      console.log('[handleCreateCase] Files:', state.uploadedFiles.map(f => ({ 
-        name: f.name, 
-        hasDataURL: !!f.dataURL,
-        hasAnonymizedDataURL: !!f.anonymizedDataURL,
-        anonymizedVisited: f.anonymizedVisited,
-        digitizedVisited: f.digitizedVisited,
-      })));
-      
-      // Save to Supabase - this is the ONLY time we persist data
-      const newCase = await createPatientAndCase(
-        state.currentPatient,
-        state.uploadedFiles
-      );
+    // Save current file data first
+    console.log('[handleCreateCase] Saving current file data...');
+    saveCurrentFile();
+    
+    console.log('[handleCreateCase] Calling createPatientAndCase...');
+    console.log('[handleCreateCase] Patient:', state.currentPatient);
+    console.log('[handleCreateCase] Files:', state.uploadedFiles.map(f => ({ 
+      name: f.name, 
+      hasDataURL: !!f.dataURL,
+      hasAnonymizedDataURL: !!f.anonymizedDataURL,
+      anonymizedVisited: f.anonymizedVisited,
+      digitizedVisited: f.digitizedVisited,
+    })));
+    
+    // Save to Supabase - this is the ONLY time we persist data
+    const newCase = await createPatientAndCase(
+      state.currentPatient,
+      state.uploadedFiles
+    );
 
-      console.log('[handleCreateCase] createPatientAndCase result:', newCase ? newCase.id : 'null');
+    console.log('[handleCreateCase] createPatientAndCase result:', newCase ? newCase.id : 'null');
 
-      if (newCase) {
-        console.log('[handleCreateCase] SUCCESS - clearing state and navigating...');
-        // Clear local state after successful save
-        clearUploadedFiles();
-        setShowSubmitModal(false);
-        navigate(`/cases/${newCase.id}`);
-      } else {
-        console.error('[handleCreateCase] createPatientAndCase returned null');
-        toast.error('Failed to create case');
-      }
-    } catch (error) {
-      console.error('[handleCreateCase] Error:', error);
+    if (newCase) {
+      console.log('[handleCreateCase] SUCCESS - clearing state and navigating...');
+      // Clear local state after successful save
+      clearUploadedFiles();
+      setShowSubmitModal(false);
+      toast.success('Case created successfully!');
+      navigate('/cases');
+    } else {
+      console.error('[handleCreateCase] createPatientAndCase returned null');
       toast.error('Failed to create case');
-    } finally {
-      setIsCreating(false);
-      console.log('=== [handleCreateCase] END ===');
+      throw new Error('Failed to create case');
     }
+    
+    console.log('=== [handleCreateCase] END ===');
   };
 
   const handleGoBack = () => {
@@ -286,34 +280,28 @@ const FilePreview = () => {
   const handleModifyCase = async () => {
     if (!state.currentPatient || !state.editingCaseId) {
       toast.error('No case data found');
-      return;
+      throw new Error('No case data found');
     }
 
-    setIsModifying(true);
-    try {
-      saveCurrentFile();
-      
-      // Save to Supabase - this is the ONLY time we persist modifications
-      const success = await supabaseModifyCase(
-        state.editingCaseId,
-        state.currentPatient,
-        state.uploadedFiles,
-        state.editedFileIds,
-        state.originalFiles
-      );
+    saveCurrentFile();
+    
+    // Save to Supabase - this is the ONLY time we persist modifications
+    const success = await supabaseModifyCase(
+      state.editingCaseId,
+      state.currentPatient,
+      state.uploadedFiles,
+      state.editedFileIds,
+      state.originalFiles
+    );
 
-      if (success) {
-        clearUploadedFiles();
-        setShowModifyModal(false);
-        navigate(`/cases/${state.editingCaseId}`);
-      } else {
-        toast.error('Failed to update case');
-      }
-    } catch (error) {
-      console.error('Error modifying case:', error);
+    if (success) {
+      clearUploadedFiles();
+      setShowModifyModal(false);
+      toast.success('Case updated successfully!');
+      navigate('/cases');
+    } else {
       toast.error('Failed to update case');
-    } finally {
-      setIsModifying(false);
+      throw new Error('Failed to update case');
     }
   };
 
@@ -513,24 +501,20 @@ const FilePreview = () => {
         onCancel={() => setShowIncompleteModal(false)}
       />
 
-      {/* Final Submit Confirmation Modal */}
-      <FinalSubmitModal
+      {/* Final Submit Confirmation Modal - Create Case */}
+      <CaseConfirmModal
         open={showSubmitModal}
         onOpenChange={setShowSubmitModal}
         onConfirm={handleCreateCase}
-        onCancel={handleGoBack}
+        mode="create"
       />
 
       {/* Modify Case Confirmation Modal */}
-      <ConfirmModal
+      <CaseConfirmModal
         open={showModifyModal}
         onOpenChange={setShowModifyModal}
-        title="Modify Case"
-        description="Are you ready to save these changes to the case? All edits will be permanently updated."
-        confirmLabel="Modify Case"
-        cancelLabel="Go Back"
         onConfirm={handleModifyCase}
-        onCancel={handleGoBackFromModify}
+        mode="update"
       />
     </div>
   );

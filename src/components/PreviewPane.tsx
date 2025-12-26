@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { UploadedFile } from '@/lib/storage';
 
 interface PreviewPaneProps {
@@ -9,9 +9,72 @@ interface PreviewPaneProps {
 /**
  * PreviewPane component for displaying file previews.
  * For PDFs: displays anonymized pages if available, with page navigation.
+ * Clears old content immediately on navigation and shows loading state.
  */
 const PreviewPane = ({ file }: PreviewPaneProps) => {
   const [currentPdfPageIndex, setCurrentPdfPageIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
+
+  // Reset page index and loading state when file changes
+  useEffect(() => {
+    setCurrentPdfPageIndex(0);
+    setLoadedImageSrc(null);
+    
+    if (file) {
+      setIsLoading(true);
+    }
+  }, [file?.id]);
+
+  // Handle image loading for current file/page
+  useEffect(() => {
+    if (!file) {
+      setIsLoading(false);
+      setLoadedImageSrc(null);
+      return;
+    }
+
+    const hasAnonymizedPages = file.type === 'application/pdf' && 
+      file.anonymizedPages && 
+      file.anonymizedPages.length > 0;
+
+    let imageSrc: string | null = null;
+
+    if (file.type.startsWith('image/')) {
+      imageSrc = file.anonymizedDataURL || file.dataURL;
+    } else if (hasAnonymizedPages) {
+      imageSrc = file.anonymizedPages![currentPdfPageIndex];
+    }
+
+    if (imageSrc) {
+      setIsLoading(true);
+      const img = new Image();
+      img.onload = () => {
+        setLoadedImageSrc(imageSrc);
+        setIsLoading(false);
+      };
+      img.onerror = () => {
+        setLoadedImageSrc(null);
+        setIsLoading(false);
+      };
+      img.src = imageSrc;
+    } else {
+      setIsLoading(false);
+    }
+  }, [file?.id, file?.dataURL, file?.anonymizedDataURL, file?.anonymizedPages, currentPdfPageIndex]);
+
+  // Handle PDF page navigation
+  const handlePreviousPage = () => {
+    setLoadedImageSrc(null); // Clear immediately
+    setIsLoading(true);
+    setCurrentPdfPageIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = (totalPages: number) => {
+    setLoadedImageSrc(null); // Clear immediately
+    setIsLoading(true);
+    setCurrentPdfPageIndex(prev => Math.min(totalPages - 1, prev + 1));
+  };
 
   if (!file) {
     return (
@@ -26,14 +89,22 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
     file.anonymizedPages && 
     file.anonymizedPages.length > 0;
 
-  const renderPreview = () => {
-    // Use anonymized image if available, otherwise use original
-    const imageSource = file.anonymizedDataURL || file.dataURL;
+  const renderLoadingState = () => (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <p className="text-sm text-muted-foreground">Loading preview...</p>
+    </div>
+  );
 
+  const renderPreview = () => {
+    // For images
     if (file.type.startsWith('image/')) {
+      if (isLoading || !loadedImageSrc) {
+        return renderLoadingState();
+      }
       return (
         <img
-          src={imageSource}
+          src={loadedImageSrc}
           alt={file.name}
           className="max-w-full max-h-full object-contain"
         />
@@ -43,7 +114,6 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
     // For PDFs with anonymized pages, render as images with page navigation
     if (hasAnonymizedPages) {
       const totalPages = file.anonymizedPages!.length;
-      const currentPageSrc = file.anonymizedPages![currentPdfPageIndex];
       
       return (
         <div className="flex flex-col items-center w-full h-full">
@@ -51,8 +121,8 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
           {totalPages > 1 && (
             <div className="flex items-center gap-2 py-2 bg-background/80 backdrop-blur-sm sticky top-0 z-10 w-full justify-center border-b border-border">
               <button
-                onClick={() => setCurrentPdfPageIndex(prev => Math.max(0, prev - 1))}
-                disabled={currentPdfPageIndex === 0}
+                onClick={handlePreviousPage}
+                disabled={currentPdfPageIndex === 0 || isLoading}
                 className="p-1 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Previous page"
               >
@@ -62,8 +132,8 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
                 Page {currentPdfPageIndex + 1} of {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPdfPageIndex(prev => Math.min(totalPages - 1, prev + 1))}
-                disabled={currentPdfPageIndex === totalPages - 1}
+                onClick={() => handleNextPage(totalPages)}
+                disabled={currentPdfPageIndex === totalPages - 1 || isLoading}
                 className="p-1 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Next page"
               >
@@ -71,12 +141,16 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
               </button>
             </div>
           )}
-          <div className="flex-1 flex items-center justify-center p-2 overflow-auto">
-            <img
-              src={currentPageSrc}
-              alt={`${file.name} - Page ${currentPdfPageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-            />
+          <div className="flex-1 flex items-center justify-center p-2 overflow-auto w-full">
+            {isLoading || !loadedImageSrc ? (
+              renderLoadingState()
+            ) : (
+              <img
+                src={loadedImageSrc}
+                alt={`${file.name} - Page ${currentPdfPageIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+              />
+            )}
           </div>
         </div>
       );
@@ -112,7 +186,7 @@ const PreviewPane = ({ file }: PreviewPaneProps) => {
   };
 
   return (
-    <div className="w-full h-full overflow-auto bg-background border border-border rounded-lg">
+    <div className="w-full h-full overflow-auto bg-background border border-border rounded-lg flex items-center justify-center">
       {renderPreview()}
     </div>
   );
