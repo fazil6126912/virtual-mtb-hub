@@ -34,6 +34,7 @@ interface AppContextType {
   createCase: (clinicalSummary?: string) => Case | null;
   deleteCase: (caseId: string) => void;
   loadCaseForEditing: (caseId: string) => boolean;
+  setupEditMode: (caseId: string, patient: PatientData, files: UploadedFile[]) => void;
   modifyCase: () => boolean;
   sendMessage: (caseId: string, expertId: string, content: string) => void;
   sendGroupMessage: (caseId: string, content: string) => void;
@@ -507,6 +508,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return true;
   };
 
+  // Setup edit mode with external data (from Supabase)
+  const setupEditMode = (caseId: string, patient: PatientData, files: UploadedFile[]) => {
+    // Initialize visited flags for existing files (they're already processed)
+    const filesWithFlags = files.map(file => ({
+      ...file,
+      anonymizedVisited: file.anonymizedVisited ?? true,
+      digitizedVisited: file.digitizedVisited ?? true,
+    }));
+
+    setState(prev => ({
+      ...prev,
+      currentPatient: patient,
+      uploadedFiles: filesWithFlags,
+      isEditMode: true,
+      editingCaseId: caseId,
+      originalFiles: [...files],
+      editedFileIds: [],
+    }));
+  };
+
   const modifyCase = (): boolean => {
     if (!state.editingCaseId || !state.isEditMode) return false;
 
@@ -799,6 +820,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createCase,
         deleteCase,
         loadCaseForEditing,
+        setupEditMode,
         modifyCase,
         sendMessage,
         sendGroupMessage,
