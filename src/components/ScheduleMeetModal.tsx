@@ -279,8 +279,8 @@ const ScheduleMeetModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[440px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 pt-3 pb-2 border-b border-border flex-shrink-0">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 pt-2 pb-1.5 border-b border-border flex-shrink-0">
           <DialogTitle className="text-base font-semibold text-foreground">
             Schedule a Meeting
           </DialogTitle>
@@ -289,7 +289,7 @@ const ScheduleMeetModal = ({
           </p>
         </DialogHeader>
 
-        <div className="px-6 py-2 space-y-2.5 overflow-y-auto hide-scrollbar flex-1">
+        <div className="px-6 py-1.5 space-y-1.5 overflow-y-auto hide-scrollbar flex-1">
           {/* Instant Meeting Button */}
           <Button
             type="button"
@@ -302,31 +302,31 @@ const ScheduleMeetModal = ({
             Start Instant Meeting
           </Button>
 
-          <div className="relative flex items-center py-1">
+          <div className="relative flex items-center py-0.5">
             <div className="flex-1 border-t border-border" />
             <span className="px-3 text-xs text-muted-foreground">or schedule</span>
             <div className="flex-1 border-t border-border" />
           </div>
 
           {/* Time Picker - 12-hour format with AM/PM */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Select Time</label>
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-2">
               {/* Hour */}
               <select
                 value={selectedHour}
                 onChange={(e) => setSelectedHour(parseInt(e.target.value))}
-                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center"
+                className="text-sm font-light py-1.5 px-1.5 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center w-12"
               >
                 {hourOptions.map(hour => (
                   <option key={hour} value={hour}>{hour.toString().padStart(2, '0')}</option>
                 ))}
               </select>
               
-              <span className="text-2xl font-light text-foreground">:</span>
+              <span className="text-sm font-light text-foreground">:</span>
               
               {/* Minute - Combined dropdown + typing input */}
-              <div className="relative">
+              <div className="relative w-12">
                 <select
                   value={selectedMinute}
                   onChange={(e) => {
@@ -336,7 +336,7 @@ const ScheduleMeetModal = ({
                   }}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                 >
-                  {Array.from({ length: 60 }, (_, i) => i).map(min => (
+                  {Array.from({ length: 12 }, (_, i) => i * 5).map(min => (
                     <option key={min} value={min}>{min.toString().padStart(2, '0')}</option>
                   ))}
                 </select>
@@ -346,7 +346,7 @@ const ScheduleMeetModal = ({
                   value={minuteInput}
                   onChange={(e) => handleMinuteInputChange(e.target.value)}
                   onBlur={handleMinuteBlur}
-                  className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-center w-20 h-auto"
+                  className="text-sm font-light py-1.5 px-1.5 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all text-center w-12 h-auto min-h-0"
                   maxLength={2}
                 />
               </div>
@@ -357,7 +357,7 @@ const ScheduleMeetModal = ({
                   type="button"
                   onClick={() => setSelectedPeriod('AM')}
                   className={cn(
-                    'px-4 py-3 text-sm font-medium transition-all',
+                    'px-1.5 py-1.5 text-sm font-light transition-all w-12',
                     selectedPeriod === 'AM'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-background text-muted-foreground hover:bg-muted'
@@ -369,7 +369,7 @@ const ScheduleMeetModal = ({
                   type="button"
                   onClick={() => setSelectedPeriod('PM')}
                   className={cn(
-                    'px-4 py-3 text-sm font-medium transition-all',
+                    'px-1.5 py-1.5 text-sm font-light transition-all w-12',
                     selectedPeriod === 'PM'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-background text-muted-foreground hover:bg-muted'
@@ -389,7 +389,7 @@ const ScheduleMeetModal = ({
           </div>
 
           {/* Weekday Selector */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium text-foreground">Repeat Weekly</label>
             <div className="flex justify-between gap-2">
               {dayLabels.map((label, index) => (
@@ -398,7 +398,7 @@ const ScheduleMeetModal = ({
                   type="button"
                   onClick={() => handleWeekdayToggle(index)}
                   className={cn(
-                    'w-10 h-10 rounded-full text-sm font-medium transition-all duration-200',
+                    'w-9 h-9 rounded-full text-sm font-medium transition-all duration-200',
                     selectedWeekdays.includes(index)
                       ? 'bg-primary text-primary-foreground shadow-md'
                       : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -416,7 +416,7 @@ const ScheduleMeetModal = ({
           </div>
 
           {/* Calendar */}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium text-foreground">Select Date(s)</label>
               <div className="flex items-center gap-2">
@@ -474,13 +474,13 @@ const ScheduleMeetModal = ({
             </div>
 
             {/* Calendar Grid */}
-            <div className="bg-muted/30 rounded-xl p-3">
+            <div className="bg-muted/30 rounded-xl p-2">
               {/* Day headers */}
-              <div className="grid grid-cols-7 gap-1 mb-2">
+              <div className="grid grid-cols-7 gap-1 mb-1.5">
                 {dayLabels.map((label, index) => (
                   <div
                     key={index}
-                    className="h-8 flex items-center justify-center text-xs font-medium text-muted-foreground"
+                    className="h-7 flex items-center justify-center text-xs font-medium text-muted-foreground"
                   >
                     {label}
                   </div>
@@ -490,7 +490,7 @@ const ScheduleMeetModal = ({
               {/* Calendar days */}
               <div className="grid grid-cols-7 gap-1">
                 {emptyCells.map((_, index) => (
-                  <div key={`empty-${index}`} className="h-9" />
+                  <div key={`empty-${index}`} className="h-8" />
                 ))}
                 {daysInMonth.map((day) => {
                   const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
@@ -504,7 +504,7 @@ const ScheduleMeetModal = ({
                       onClick={() => handleDateToggle(day)}
                       disabled={isPast}
                       className={cn(
-                        'h-9 w-full rounded-lg text-sm font-medium transition-all duration-200',
+                        'h-8 w-full rounded-lg text-sm font-medium transition-all duration-200',
                         isPast && 'text-muted-foreground/40 cursor-not-allowed',
                         !isPast && !isSelected && 'hover:bg-muted text-foreground',
                         isSelected && 'bg-primary text-primary-foreground shadow-md',
@@ -527,7 +527,7 @@ const ScheduleMeetModal = ({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-muted/20">
+        <div className="flex justify-end gap-3 px-6 py-3 border-t border-border bg-muted/20">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

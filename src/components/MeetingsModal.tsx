@@ -43,14 +43,14 @@ const MeetingsModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <DialogTitle className="text-lg font-semibold text-foreground">
             Scheduled Meetings
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto hide-scrollbar flex-1">
+        <div className="px-6 py-4 max-h-[75vh] overflow-y-auto hide-scrollbar flex-1">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent" />
