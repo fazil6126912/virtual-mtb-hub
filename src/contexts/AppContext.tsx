@@ -362,16 +362,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const clearUploadedFiles = () => {
+    // This clears uploaded files but preserves the current mode (create vs edit)
+    // The mode is set by setCurrentPatient (create) or setupEditMode (edit)
     setState(prev => ({
       ...prev,
       uploadedFiles: [],
       editedFileIds: [],
       originalFiles: [],
-      // Only clear edit mode flags if not actively editing a case
-      ...(prev.editingCaseId === null ? {
-        isEditMode: false,
-        editingCaseId: null,
-      } : {}),
     }));
   };
 

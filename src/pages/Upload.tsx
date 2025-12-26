@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import Header from '@/components/Header';
@@ -9,16 +9,10 @@ import { toast } from 'sonner';
 
 const Upload = () => {
   const navigate = useNavigate();
-  const { state, addUploadedFile, clearUploadedFiles } = useApp();
+  const { state, addUploadedFile } = useApp();
 
-  // Clear uploaded files when entering upload page for a new case (not edit mode)
-  // This ensures no stale files from previous abandoned attempts persist
-  // Only clear if we have a currentPatient (new case flow) and are not in edit mode
-  useEffect(() => {
-    if (state.currentPatient && !state.isEditMode && state.uploadedFiles.length > 0) {
-      clearUploadedFiles();
-    }
-  }, []); // Only run on mount
+  // Note: Files are already cleared in setCurrentPatient when starting a new case
+  // No need to clear here - it could interfere with the state
 
   const handleFilesAdded = (files: UploadedFile[]) => {
     files.forEach(file => addUploadedFile(file));
