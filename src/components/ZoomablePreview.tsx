@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { ZoomIn, ZoomOut, Maximize, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { UploadedFile } from '@/lib/storage';
 
 interface ZoomablePreviewProps {
@@ -12,9 +12,79 @@ interface ZoomablePreviewProps {
  * Uses react-zoom-pan-pinch for smooth interactions.
  * Supports pinch-to-zoom on mobile and mouse wheel + drag on desktop.
  * For PDFs: displays anonymized pages if available, with page navigation.
+ * Clears previous content and shows loader when switching files/pages.
  */
 const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
   const [currentPdfPageIndex, setCurrentPdfPageIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
+
+  // Reset page index and loading state when file changes
+  useEffect(() => {
+    setCurrentPdfPageIndex(0);
+    setLoadedImageSrc(null);
+    
+    if (file) {
+      setIsLoading(true);
+    }
+  }, [file?.id]);
+
+  // Handle image loading for current file/page
+  useEffect(() => {
+    if (!file) {
+      setIsLoading(false);
+      setLoadedImageSrc(null);
+      return;
+    }
+
+    const hasAnonymizedPages = file.type === 'application/pdf' && 
+      file.anonymizedPages && 
+      file.anonymizedPages.length > 0;
+
+    let imageSrc: string | null = null;
+
+    if (file.type.startsWith('image/')) {
+      imageSrc = file.anonymizedDataURL || file.dataURL;
+    } else if (hasAnonymizedPages) {
+      imageSrc = file.anonymizedPages![currentPdfPageIndex];
+    }
+
+    if (imageSrc) {
+      setIsLoading(true);
+      const img = new Image();
+      img.onload = () => {
+        setLoadedImageSrc(imageSrc);
+        setIsLoading(false);
+      };
+      img.onerror = () => {
+        setLoadedImageSrc(null);
+        setIsLoading(false);
+      };
+      img.src = imageSrc;
+    } else {
+      setIsLoading(false);
+    }
+  }, [file?.id, file?.dataURL, file?.anonymizedDataURL, file?.anonymizedPages, currentPdfPageIndex]);
+
+  // Handle PDF page navigation with immediate clear
+  const handlePreviousPage = () => {
+    setLoadedImageSrc(null);
+    setIsLoading(true);
+    setCurrentPdfPageIndex(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = (totalPages: number) => {
+    setLoadedImageSrc(null);
+    setIsLoading(true);
+    setCurrentPdfPageIndex(prev => Math.min(totalPages - 1, prev + 1));
+  };
+
+  const renderLoadingState = () => (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <p className="text-sm text-muted-foreground">Loading...</p>
+    </div>
+  );
 
   if (!file) {
     return (
@@ -30,13 +100,14 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
     file.anonymizedPages.length > 0;
 
   const renderPreview = () => {
-    // Use anonymized image if available, otherwise use original
-    const imageSource = file.anonymizedDataURL || file.dataURL;
-    
+    // For images
     if (file.type.startsWith('image/')) {
+      if (isLoading || !loadedImageSrc) {
+        return renderLoadingState();
+      }
       return (
         <img
-          src={imageSource}
+          src={loadedImageSrc}
           alt={file.name}
           className="max-w-full max-h-full object-contain"
           draggable={false}
@@ -47,7 +118,6 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
     // For PDFs with anonymized pages, render as images with page navigation
     if (hasAnonymizedPages) {
       const totalPages = file.anonymizedPages!.length;
-      const currentPageSrc = file.anonymizedPages![currentPdfPageIndex];
       
       return (
         <div className="flex flex-col items-center w-full h-full">
@@ -55,8 +125,8 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
           {totalPages > 1 && (
             <div className="flex items-center gap-2 py-2 bg-background/80 backdrop-blur-sm sticky top-0 z-10 w-full justify-center border-b border-border">
               <button
-                onClick={() => setCurrentPdfPageIndex(prev => Math.max(0, prev - 1))}
-                disabled={currentPdfPageIndex === 0}
+                onClick={handlePreviousPage}
+                disabled={currentPdfPageIndex === 0 || isLoading}
                 className="p-1 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Previous page"
               >
@@ -66,8 +136,8 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
                 Page {currentPdfPageIndex + 1} of {totalPages}
               </span>
               <button
-                onClick={() => setCurrentPdfPageIndex(prev => Math.min(totalPages - 1, prev + 1))}
-                disabled={currentPdfPageIndex === totalPages - 1}
+                onClick={() => handleNextPage(totalPages)}
+                disabled={currentPdfPageIndex === totalPages - 1 || isLoading}
                 className="p-1 rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Next page"
               >
@@ -75,13 +145,17 @@ const ZoomablePreview = ({ file }: ZoomablePreviewProps) => {
               </button>
             </div>
           )}
-          <div className="flex-1 flex items-center justify-center p-2 overflow-auto">
-            <img
-              src={currentPageSrc}
-              alt={`${file.name} - Page ${currentPdfPageIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
-              draggable={false}
-            />
+          <div className="flex-1 flex items-center justify-center p-2 overflow-auto w-full">
+            {isLoading || !loadedImageSrc ? (
+              renderLoadingState()
+            ) : (
+              <img
+                src={loadedImageSrc}
+                alt={`${file.name} - Page ${currentPdfPageIndex + 1}`}
+                className="max-w-full max-h-full object-contain"
+                draggable={false}
+              />
+            )}
           </div>
         </div>
       );
