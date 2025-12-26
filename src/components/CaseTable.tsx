@@ -42,7 +42,7 @@ const CaseTable = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [caseToDelete, setCaseToDelete] = useState<Case | FullCase | null>(null);
   const navigate = useNavigate();
-  const { deleteCase, loadCaseForEditing } = useApp();
+  const { deleteCase } = useApp();
 
   const filteredCases = cases.filter(c =>
     c.patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -55,10 +55,8 @@ const CaseTable = ({
   };
 
   const handleEdit = (caseItem: Case | FullCase) => {
-    // Load case for editing and navigate to anonymization workflow
-    if (loadCaseForEditing(caseItem.id)) {
-      navigate(`/upload/anonymize/0`);
-    }
+    // Navigate to the dedicated EditCase page with the case ID
+    navigate(`/cases/${caseItem.id}/edit`);
     onEditCase?.(caseItem.id);
   };
 

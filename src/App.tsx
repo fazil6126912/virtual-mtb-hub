@@ -16,6 +16,7 @@ import Anonymize from "./pages/Anonymize";
 import FilePreview from "./pages/FilePreview";
 import CasesList from "./pages/CasesList";
 import CaseView from "./pages/CaseView";
+import EditCase from "./pages/EditCase";
 import MTBsList from "./pages/MTBsList";
 import MTBDetail from "./pages/MTBDetail";
 import NotFound from "./pages/NotFound";
@@ -75,6 +76,7 @@ const AppRoutes = () => {
       <Route path="/upload/preview/:fileIndex" element={<ProtectedRoute><FilePreview /></ProtectedRoute>} />
       <Route path="/cases" element={<ProtectedRoute><CasesList /></ProtectedRoute>} />
       <Route path="/cases/:id" element={<ProtectedRoute><CaseView /></ProtectedRoute>} />
+      <Route path="/cases/:caseId/edit" element={<ProtectedRoute><EditCase /></ProtectedRoute>} />
       <Route path="/mtbs" element={<ProtectedRoute><MTBsList /></ProtectedRoute>} />
       <Route path="/mtbs/:id" element={<ProtectedRoute><MTBDetail /></ProtectedRoute>} />
       <Route path="/mtbs/:id/cases/:caseId" element={<ProtectedRoute><CaseView /></ProtectedRoute>} />
