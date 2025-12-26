@@ -137,20 +137,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const setCurrentPatient = (patient: PatientData) => {
-    setState(prev => {
-      // When starting a new case (not in edit mode), clear all upload-related state
-      const isNewCase = !prev.isEditMode;
-      return {
-        ...prev,
-        currentPatient: patient,
-        // Clear upload state for new case creation
-        ...(isNewCase ? {
-          uploadedFiles: [],
-          editedFileIds: [],
-          originalFiles: [],
-        } : {}),
-      };
-    });
+    // This function is ONLY called from Home.tsx for creating NEW cases
+    // It must ALWAYS reset edit mode and clear all previous upload state
+    setState(prev => ({
+      ...prev,
+      currentPatient: patient,
+      // Always reset to create mode
+      isEditMode: false,
+      editingCaseId: null,
+      // Clear all upload-related state for new case
+      uploadedFiles: [],
+      editedFileIds: [],
+      originalFiles: [],
+    }));
   };
 
   const addUploadedFile = (file: UploadedFile) => {
