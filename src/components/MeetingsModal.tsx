@@ -43,7 +43,7 @@ const MeetingsModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <DialogTitle className="text-lg font-semibold text-foreground">
             Scheduled Meetings

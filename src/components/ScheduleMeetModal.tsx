@@ -279,7 +279,7 @@ const ScheduleMeetModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-[440px] max-h-[85vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-6 pt-3 pb-2 border-b border-border flex-shrink-0">
           <DialogTitle className="text-base font-semibold text-foreground">
             Schedule a Meeting
@@ -316,7 +316,7 @@ const ScheduleMeetModal = ({
               <select
                 value={selectedHour}
                 onChange={(e) => setSelectedHour(parseInt(e.target.value))}
-                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center w-20"
+                className="text-2xl font-light py-3 px-4 border-2 border-border rounded-xl bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all appearance-none cursor-pointer text-center"
               >
                 {hourOptions.map(hour => (
                   <option key={hour} value={hour}>{hour.toString().padStart(2, '0')}</option>
