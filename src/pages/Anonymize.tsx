@@ -62,6 +62,7 @@ const Anonymize = () => {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentShape, setCurrentShape] = useState<RedactionShape | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isFileLoading, setIsFileLoading] = useState(true); // Track file transitions
   const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   
   // PDF support
@@ -93,8 +94,12 @@ const Anonymize = () => {
   };
 
   // Mark file as visited immediately when user views it (via navigation, dropdown, etc.)
+  // Also reset loading state when file changes
   useEffect(() => {
     if (currentFile) {
+      // Reset loading state immediately when file changes
+      setIsFileLoading(true);
+      setImageLoaded(false);
       markAnonymizedVisited(currentFile.id);
       logVisitedState(`file viewed: ${currentFile.name}`);
     }
@@ -164,6 +169,7 @@ const Anonymize = () => {
       setCurrentPdfPageIndex(0);
       setIsPDF(true);
       setImageLoaded(true);
+      setIsFileLoading(false);
       setIsLoadingPDF(false);
     } catch (error) {
       console.error('Error loading PDF:', error);
@@ -216,6 +222,7 @@ const Anonymize = () => {
       // Draw image
       ctx.drawImage(img, 0, 0);
       setImageLoaded(true);
+      setIsFileLoading(false);
     };
     img.onerror = () => {
       console.error('Failed to load image');
@@ -375,6 +382,7 @@ const Anonymize = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
       setImageLoaded(true);
+      setIsFileLoading(false);
       
       // Reset shapes when changing PDF pages
       setShapes([]);
@@ -901,11 +909,13 @@ const Anonymize = () => {
         {/* Right: Canvas Area with Zoom */}
         <div className="flex-1 p-3 overflow-hidden flex flex-col" ref={containerRef}>
           <div className="flex-1 rounded-lg overflow-hidden bg-background relative border border-border">
-            {/* PDF Loading Overlay */}
-            {isLoadingPDF && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/80">
+            {/* File Loading Overlay - shows when switching between files */}
+            {(isFileLoading || isLoadingPDF) && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background">
                 <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
-                <p className="text-sm text-muted-foreground">Loading PDF...</p>
+                <p className="text-sm text-muted-foreground">
+                  {isLoadingPDF ? 'Loading PDF...' : 'Loading document...'}
+                </p>
               </div>
             )}
             
